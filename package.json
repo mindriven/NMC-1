@@ -1,6 +1,12 @@
 {
   "devDependencies": {
     "cross-env": "^5.2.0",
+    "flow-bin": "^0.85.0",
+    "flow-remove-types": "^1.2.3",
     "nodemon": "^1.18.5"
+  },
+  "scripts": {
+    "build": "flow-remove-types ./ -d out/ -i \"out|node_modules\"",
+    "flow:": "flow check ./"
   }
 }
