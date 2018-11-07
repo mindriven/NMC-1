@@ -6,6 +6,7 @@ const url = require('url');
 const StringDecoder = require('string_decoder').StringDecoder;
 const config = require('./configs');
 const fs = require('fs');
+const _data = require('./lib/data');
 
 const handlers = {
     ping: (_, callback) => callback(200),
@@ -16,6 +17,9 @@ const router = {
     '/ping': handlers.ping,
     '/hello': handlers.hello
 };
+
+_data.delete('test', 'newFile', (err) => console.log(typeof err === 'string' ?  "error is:" + err :"no error"));
+
 
 const httpServer = http.createServer((req, res) => {serverLogic(req, res);});
 const httpsServerOptions = {

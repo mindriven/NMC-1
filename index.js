@@ -6,6 +6,7 @@ const url = require('url');
 const StringDecoder = require('string_decoder').StringDecoder;
 const config = require('./configs');
 const fs = require('fs');
+const _data = require('./lib/data');
 
 const handlers = {
     ping: (_, callback) => callback(200),
