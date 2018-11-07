@@ -1,0 +1,8 @@
+{
+    "verbose": true,
+    "ignore": ["out"],
+    "delay": 1000,
+    "events": {
+        "restart": "yarn build"
+      }
+}

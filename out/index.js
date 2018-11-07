@@ -18,9 +18,6 @@ const router = {
     '/hello': handlers.hello
 };
 
-_data.delete('test', 'newFile', (err) => console.log(typeof err === 'string' ?  "error is:" + err :"no error"));
-
-
 const httpServer = http.createServer((req, res) => {serverLogic(req, res);});
 const httpsServerOptions = {
     key: fs.readFileSync('./https/key.pem'),

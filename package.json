@@ -5,11 +5,10 @@
     "flow-remove-types": "^1.2.3",
     "nodemon": "^1.18.5"
   },
-  "nodemonConfig": {
-    "watch":["out"]
-  },
   "scripts": {
-    "build": "flow-remove-types ./ -d out/ -i \"out|node_modules\"",
-    "flow:": "flow check ./"
+    "build": "flow-remove-types ./ -d out/ -i \"out|node_modules|noop.js\"",
+    "flow:": "flow check ./",
+    "start": "nodemon ./out/index.js",
+    "hot-build": "nodemon noop.js --config nodemon-rebuilding.json"
   }
 }
