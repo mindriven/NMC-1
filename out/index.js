@@ -35,7 +35,7 @@ httpsServer.listen(config.httpsPort, () => {
     console.log('the server is listening on port ' + config.httpsPort + ' now, configuration is', config.envName);
 });
 
-function serverLogic(req, res) {
+async function serverLogic(req, res) {
     const parsedUrl = url.parse(req.url, true);
     const path = parsedUrl.pathname || '';
     const trimmedPath = path.replace(/\/+$/g, '');

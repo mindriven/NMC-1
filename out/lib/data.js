@@ -1,60 +1,33 @@
 //      
 const fs = require('fs');
 const path = require('path');
+const util = require('util');
+
+const open = util.promisify(fs.open);
+const writeFile = util.promisify(fs.writeFile);
+const close = util.promisify(fs.close);
+const ftruncate = util.promisify(fs.ftruncate);
+const unlink = util.promisify(fs.unlink);
+const readFile = util.promisify(fs.readFile);
 
 const lib = {};
 lib.baseDir = path.join(__dirname, '/../.data/');
-lib.create = (dir        , file        , data        , callback                               ) => {
-    fs.open(lib.baseDir + dir + '/' + file + '.json', 'wx', (err, descriptor) => {
-        if (!err && descriptor) {
-            const toWrite = JSON.stringify(data);
-            fs.writeFile(descriptor, toWrite, (err) => {
-                if (!err) {
-                    fs.close(descriptor, (err) => callback(err ? 'Error closing new file ' + JSON.stringify(err) : false))
-                } else callback('Error writing to the new file' + JSON.stringify(err));
-            })
-        }
-        else {
-            callback('Error: could not create a new file' + JSON.stringify(err));
-        }
-    })
+lib.create = async (dir        , file        , data        ) => {
+    const descriptor = await open(lib.baseDir + dir + '/' + file + '.json', 'wx');
+    await writeFile(descriptor, JSON.stringify(data));
+    await close(descriptor);
 };
 
-lib.read = (dir        , file        , callback                                     ) => {
-    fs.readFile(lib.baseDir + dir + '/' + file + '.json', 'utf8', (err, data) => callback(JSON.stringify(err), data));
+lib.read = async (dir        , file        )                  => readFile(lib.baseDir + dir + '/' + file + '.json', 'utf8');
+
+lib.update = async (dir        , file        , data        ) => {
+    const path = lib.baseDir + dir + '/' + file + '.json';
+    const descriptor = await open(path, 'r+');
+    await ftruncate(descriptor, 0);
+    await writeFile(descriptor, JSON.stringify(data));
+    await close(descriptor);
 };
 
-lib.update = (dir        , file        , data        , callback                               ) => {
-    fs.open(lib.baseDir + dir + '/' + file + '.json', 'r+', (err, descriptor) => {
-        if (!err && descriptor) {
-            fs.ftruncate(descriptor, (err) => {
-                if (err) {
-                    callback('error truncating file');
-                }
-                else {
-                    fs.writeFile(descriptor, JSON.stringify(data), (err) => {
-                        if (err) {
-                            callback('could not write to a file');
-                        } else {
-                            fs.close(descriptor, (err) => {
-                                if (err) {
-                                    callback('error closing file')
-                                }
-                                callback(false);
-                            })
-                        }
-                    })
-                }
-            })
-        }
-        else {
-            callback('could not open the file, it may not exists yet');
-        }
-    });
-};
-
-lib.delete = (dir        , file        , callback                               ) => {
-    fs.unlink(lib.baseDir + dir + '/' + file + '.json', (err)=>{callback(err||false);});
-}
+lib.delete = async (dir        , file        ) => unlink(lib.baseDir + dir + '/' + file + '.json');
 
 module.exports = lib;
