@@ -11,23 +11,24 @@ const unlink = util.promisify(fs.unlink);
 const readFile = util.promisify(fs.readFile);
 
 const lib = {};
-lib.baseDir = path.join(__dirname, '/../.data/');
+
 lib.create = async (dir        , file        , data        ) => {
-    const descriptor = await open(lib.baseDir + dir + '/' + file + '.json', 'wx');
+    const descriptor = await open(dataFile(dir, file), 'wx');
     await writeFile(descriptor, JSON.stringify(data));
     await close(descriptor);
 };
 
-lib.read = async (dir        , file        )                  => readFile(lib.baseDir + dir + '/' + file + '.json', 'utf8');
+lib.read = async (dir        , file        )                  => readFile(dataFile(dir, file), 'utf8');
 
 lib.update = async (dir        , file        , data        ) => {
-    const path = lib.baseDir + dir + '/' + file + '.json';
-    const descriptor = await open(path, 'r+');
+    const descriptor = await open(dataFile(dir, file), 'r+');
     await ftruncate(descriptor, 0);
     await writeFile(descriptor, JSON.stringify(data));
     await close(descriptor);
 };
 
-lib.delete = async (dir        , file        ) => unlink(lib.baseDir + dir + '/' + file + '.json');
+lib.delete = async (dir        , file        ) => unlink(dataFile(dir, file));
 
 module.exports = lib;
+
+const dataFile = (dir        , file        ) => path.join(__dirname, '/../.data/') + dir + '/' + file + '.json'
