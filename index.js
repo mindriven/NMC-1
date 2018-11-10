@@ -55,16 +55,16 @@ async function serverLogic(req, res) {
             headers,
             payload: helpers.parseJsonToObject(buffer)
         };
-        const callback = (statusCode, payload) => {
-            res.setHeader('Content-type', 'application/json');
-            res.writeHead(statusCode || 200);
-            const responseContent = statusCode === 200
+
+        const handlerResult = await handler(handlerData);
+
+        res.setHeader('Content-type', 'application/json');
+        res.writeHead(handlerResult.code || 200);
+        const responseContent = handlerResult.code === 200
                 ? JSON.stringify({greeting: 'Hello ' + (queryStringObject.name || 'stranger') + '!'})
                 : '';
-            res.end(responseContent);
-            console.log('returning: ', statusCode, responseContent);
-        };
-        await handler(handlerData, callback);
+        res.end(responseContent);
+        console.log('returning: ', handlerResult.code, responseContent);
     });
 }
 

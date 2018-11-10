@@ -2,65 +2,74 @@
 const _data = require('./data');
 const _helpers = require('./helpers');
 
+
+                           
+                        
+                              
+                   
+                    
+                   
+  
+
+                             
+                 
+                  
+  
+
 const handlers = {
-    ping: (_, callback) => callback(200),
-    users: (data, callback) => {
+    ping: async () => {code: 200},
+    users: async (data             ) => {
         const acceptableVerbs = ['post', 'get', 'put', 'delete'];
         if (acceptableVerbs.includes(data.method)) {
-            handlers._users[data.method](data, callback);
+            return handlers._users[data.method](data);
         } else {
-            callback(405)
+            return Promise.resolve({code: 405});
         };
     },
     _users: {
-        post: async (data, callback) => {
-            console.log('got payload', data.payload);
+        post: async (data             )                         => {
             const firstName = inputOrFalse(data.payload.firstName);
             const lastName = inputOrFalse(data.payload.lastName);
             const password = inputOrFalse(data.payload.password);
             const phone = inputOrFalse(data.payload.phone, 10);
             const tosAgreement = data.payload.tosAgreement === true;
-            console.log(firstName,lastName,password,phone,tosAgreement);
             if (firstName && lastName && password && phone && tosAgreement) {
-                try{
-                    await data.read('users', phone);
-                    callback(400, {'Error': 'User already exists'});
+                try {
+                    await _data.read('users', phone);
+                    return {code: 400, error: 'User already exists'};
                 }
-                catch(e){
+                catch (e) {
                     const user = {
                         firstName,
                         lastName,
                         password: _helpers.hash(password),
                         phone
                     }
-
                     await _data.create('users', phone, user);
-                    callback(200);
+                    return {code: 200};
                 };
-
             }
             else {
-                console.log('missing req field');
-                callback(400, {Error: 'missing required fields'});
+                return {code: 400, error: 'Missing required fields'};
             }
 
         },
-        get: (data, callback) => {
+        get: async (data             ) => {
 
         },
-        put: (data, callback) => {
+        put: async (data             ) => {
 
         },
-        delete: (data, callback) => {
+        delete: async (data             ) => {
 
         },
     },
-    notFound: (data, callback) => {callback(404);}
+    notFound: async (data             ) => Promise.resolve({code: 404})
 };
 
 const inputOrFalse = (input        , minLen         = 1, maxLen         = 255) =>
-    (typeof (input) === 'string' && input.trim().length >= minLen && input.trim().length <= maxLen )
-    ? input.trim()
-    : false;
+    (typeof (input) === 'string' && input.trim().length >= minLen && input.trim().length <= maxLen)
+        ? input.trim()
+        : false;
 
 module.exports = handlers;
