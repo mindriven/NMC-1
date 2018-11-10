@@ -5,17 +5,14 @@ const https = require('https');
 const url = require('url');
 const StringDecoder = require('string_decoder').StringDecoder;
 const config = require('./configs');
+const handlers = require('./lib/handlers');
+const helpers = require('./lib/helpers');
 const fs = require('fs');
 const _data = require('./lib/data');
 
-const handlers = {
-    ping: (_, callback) => callback(200),
-    hello: (_, callback) => callback(200),
-    notFound: (data, callback) => {callback(404);}
-};
 const router = {
     '/ping': handlers.ping,
-    '/hello': handlers.hello
+    '/users': handlers.users
 };
 
 const httpServer = http.createServer((req, res) => {serverLogic(req, res);});
@@ -47,7 +44,7 @@ async function serverLogic(req, res) {
     req.on('data', (data) => {
         buffer += decoder.write(data);
     });
-    req.on('end', () => {
+    req.on('end', async () => {
         buffer += decoder.end();
         console.log('request came in for path:', trimmedPath);
         const handler = router[trimmedPath] || handlers.notFound;
@@ -56,7 +53,7 @@ async function serverLogic(req, res) {
             queryStringObject,
             method,
             headers,
-            payload: buffer
+            payload: helpers.parseJsonToObject(buffer)
         };
         const callback = (statusCode, payload) => {
             res.setHeader('Content-type', 'application/json');
@@ -67,7 +64,7 @@ async function serverLogic(req, res) {
             res.end(responseContent);
             console.log('returning: ', statusCode, responseContent);
         };
-        handler(handlerData, callback);
+        await handler(handlerData, callback);
     });
 }
 
