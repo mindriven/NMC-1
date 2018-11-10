@@ -11,14 +11,23 @@ const _helpers = require('./helpers');
                    
   
 
-                             
+                                
                  
-                  
+                   
+               
   
 
+                     
+                       
+                      
+                      
+                   
+                          
+   
+
 const handlers = {
-    ping: async () => {code: 200},
-    users: async (data             ) => {
+    ping: async () => Promise.resolve({code: 200}),
+    users: async (data             )                               => {
         const acceptableVerbs = ['post', 'get', 'put', 'delete'];
         if (acceptableVerbs.includes(data.method)) {
             return handlers._users[data.method](data);
@@ -27,7 +36,7 @@ const handlers = {
         };
     },
     _users: {
-        post: async (data             )                         => {
+        post: async (data             )                               => {
             const firstName = inputOrFalse(data.payload.firstName);
             const lastName = inputOrFalse(data.payload.lastName);
             const password = inputOrFalse(data.payload.password);
