@@ -62,8 +62,8 @@ async function serverLogic(req, res) {
 
         res.setHeader('Content-type', 'application/json');
         res.writeHead(handlerResult.code || 200);
-        const responseContent = handlerResult.code === 200
-                ? JSON.stringify({greeting: 'Hello ' + (queryStringObject.name || 'stranger') + '!'})
+        const responseContent = handlerResult.code === 200 && handlerResult.payload
+                ? JSON.stringify(handlerResult.payload)
                 : '';
         res.end(responseContent);
         console.log('returning: ', handlerResult.code, responseContent);

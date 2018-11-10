@@ -11,12 +11,11 @@ const helpers = {
             return false;
         }
     },
-    parseJsonToObject:    (input        )        => {
+    parseJsonToObject:    (input        )      => {
         try {
-            console.log('parsing input', input);
             return JSON.parse(input);
         } catch (e) {
-            return {};
+            return undefined;
     }
 }
 }
