@@ -12,12 +12,15 @@ const helpers = {
         }
     },
     parseJsonToObject:    (input        )      => {
-        try {
-            return JSON.parse(input);
-        } catch (e) {
-            return undefined;
+        try {return JSON.parse(input);}
+        catch (e) { return undefined;}
+    },
+    createRandomString: (len         = 20)          => {
+        const validLength = typeof(len) === 'number' ? len || false : false;
+        return validLength
+            ? crypto.randomBytes(Math.ceil(validLength/2)).toString('hex').slice(0,validLength)
+            : undefined;
     }
-}
 }
 
 module.exports = helpers;

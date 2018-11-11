@@ -14,7 +14,8 @@ import type {User, HandlerData} from './lib/handlers';
 
 const router = {
     '/ping': handlers.ping,
-    '/users': handlers.users
+    '/users': handlers.users,
+    '/tokens': handlers.tokens
 };
 
 const httpServer = http.createServer((req, res) => {serverLogic(req, res);});
@@ -48,7 +49,7 @@ async function serverLogic(req, res) {
     });
     req.on('end', async () => {
         buffer += decoder.end();
-        console.log('request came in for path:', trimmedPath);
+        console.log('request came in for path:', trimmedPath, buffer);
         const handler = router[trimmedPath] || handlers.notFound;
         const handlerData: HandlerData = {
             trimmedPath,
