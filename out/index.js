@@ -56,7 +56,7 @@ async function serverLogic(req, res) {
             queryStringObject,
             method,
             headers,
-            payload: helpers.parseJsonToObject(buffer)
+        payload: helpers.parseJsonToObject(buffer)
         };
 
         const handlerResult = await handler(handlerData);

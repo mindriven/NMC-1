@@ -18,191 +18,204 @@ const _helpers = require('./helpers');
   
 
                      
+                 
+                   
+                      
                        
                       
-                      
-                   
                           
    
 
                      
                     
                   
-                 
+                  
  
-
-const getUserFromPayload = async (data             , continueWith                                       )                               =>
-{
-    const payload = data.payload;
-    if(!payload) return {code: 400, error: 'Missing required fields'};
-    const user = getUserIfDataValid(payload);
-    if (!user) return {code: 400, error: 'Missing required fields'};
-    return continueWith(user);
-}
-
-
-const authenticate = async (data             , continueWith                                                                 )                               =>
-{
-    const qs = data.queryStringObject;
-    if(!qs) return {code: 400, error: 'Missing required fields'};
-    const phone = inputOrFalse(qs.phone, 10);
-    if(!phone) return {code: 400, error: 'Missing required fields'};
-    const token = inputOrFalse(data.headers.token, 20, 20);
-    if(!token || !(await isTokenValid(token, phone))) return {code: 403, error: 'No token or token did not match'};
-    console.log('authenticated');
-    return continueWith(token, phone);
-}
-
-const readUserObject = async (phone         , continueWith                                              )                               =>
-{
-    const user = _helpers.parseJsonToObject(await _data.read('users', phone));
-    if(!user) return {code: 404};
-    return continueWith(user);
-}
-
-const ifErrorBelowThen = async (onError                     , continueWith                              )                               =>
-{
-    return continueWith.catch(e=>onError);
-}
-
-async function http200       (p            )                           
-{
-    await p;
-    return { code : 200 };
-}
 
 const handlers = {
     ping: async () => Promise.resolve({code: 200}),
     users: async (data             )                               => {
         const acceptableVerbs = ['post', 'get', 'put', 'delete'];
-        if (acceptableVerbs.includes(data.method)) {
-            return handlers._users[data.method](data);
-        } else {
-            return Promise.resolve({code: 405});
-        };
+        return acceptableVerbs.includes(data.method)
+            ? handlers._users[data.method](data)
+            : Promise.resolve({code: 405});
     },
     _users: {
         post: async (data             ) => {
-            return getUserFromPayload(data,
-                async user => ifErrorBelowThen({code: 400, error: 'User already exists'},
-                http200(_data.create('users', user.phone, user))));
+            return getUserDataFromPayload(data, user =>
+                ifErrorBelowThen({code: 400, error: 'User already exists'},
+                createNewId(20, userId =>
+                http200WithPayload(_data.create('users', userId, user), {...user, id: userId}))));
         },
         get: async (data             ) => {
             return authenticate(data,
-                async (token, phone)=> ifErrorBelowThen({code: 404},
-                readUserObject(phone,
-                async (user)=>{delete user.password; return {code: 200, payload: user}})));
+                (token, userId) => ifErrorBelowThen({code: 404},
+                readUserObject(userId, 
+                (user)=>{delete user.password; return Promise.resolve({code: 200, payload: user})})));
         },
         put: async (data             ) => {
             return authenticate(data,
-                async (token, phone) => getUserFromPayload(data,
-                async user => ifErrorBelowThen({code: 404},
-                http200(_data.update('users', phone, user)))));
+                (token, userId) => getUserDataFromPayload(data,
+                user => ifErrorBelowThen({code: 404},
+                http200(_data.update('users', userId, user)))));
         },
         delete: async (data             ) => {
             return authenticate(data,
-                async (token, phone) => ifErrorBelowThen({code: 404},
-                http200(_data.delete('users', phone))));
-
-            // const qs = data.queryStringObject;
-            // if(!qs) return {code: 400, error: 'Missing required fields'};
-            // const phone = inputOrFalse(qs.phone, 10);
-            // if(!phone) return {code: 400, error: 'Missing required fields'};
-            // const token = inputOrFalse(data.headers.token, 20, 20);
-            // if(!token || !verifyToken(token, phone)) return {code: 403, error: 'No token or token did not match'};
-
-            // try{
-            //     await _data.delete('users', phone);
-            //     return {code: 200};
-            // }
-            // catch(e){ return {code: 404}; }
+                (token, userId) => ifErrorBelowThen({code: 404},
+                http200(_data.delete('users', userId))));
         },
     },
     tokens: async (data             )                                => {
         const acceptableVerbs = ['post', 'get', 'put', 'delete'];
-        if (acceptableVerbs.includes(data.method)) {
-            return handlers._tokens[data.method](data);
-        } else {
-            return Promise.resolve({code: 405});
-        };
+        return (acceptableVerbs.includes(data.method))
+            ? handlers._tokens[data.method](data)
+            : Promise.resolve({code: 405});
     },
     _tokens: {
         post: async (data             )                                => {
-            const payload = data.payload;
-            console.log(payload);
-            if(!payload) return {code: 400, error: 'Missing required fields'};
-            const password = inputOrFalse(payload.password);
-            const phone = inputOrFalse(payload.phone, 10);
-            if (!password || !phone) return {code: 400, error: 'Missing required fields'};
-            const user = _helpers.parseJsonToObject(await _data.read('users', phone));
-            const inputPasswordHash = _helpers.hash(password);
-            const token = _helpers.createRandomString(20);
-            if(!user || !token || user.password !== inputPasswordHash) return {code: 404};
-
-            const expires = Date.now() + 1000 * 60 * 60;
-            const tokenObject = {
-                expires,
-                token,
-                phone
-            }
-            try{
-                await _data.create('tokens', token, tokenObject);
-                return {code: 200, payload: tokenObject};
-            }
-            catch(e){ return {code: 500, error: 'couldn\'t persist token'}; }
-            
+            return getExistingUserObjectByQsIdAndPayloadPassword(data, (user, userId) =>
+                createNewToken(userId, tokenObject =>
+                ifErrorBelowThen({code: 500, error: 'couldn\'t persist token'},
+                http200WithPayload(_data.create('tokens', tokenObject.token, tokenObject), tokenObject))));
         },
         get: async (data             ) => {
-            const qs = data.queryStringObject;
-            if(!qs) return {code: 400, error: 'Missing required fields'};
-            const token = inputOrFalse(qs.token, 20);
-            if(!token) return {code: 400, error: 'Missing required fields'};
-            try{
-                const tokenObject = _helpers.parseJsonToObject(await _data.read('tokens', token));
-                return tokenObject ? {code: 200, payload: tokenObject} : {code: 404};
-            }
-            catch(e) { return {code: 404}; }
+            return getTokenFromQs(data, token =>
+                    ifErrorBelowThen({code: 404},
+                    readTokenObject(token, tokenObject => Promise.resolve({code: 200, payload: tokenObject}))));
         },
         put: async (data             ) => {
-            const qs = data.queryStringObject;
-            if(!qs) return {code: 400, error: 'Missing required fields'};
-            const token = inputOrFalse(qs.token, 20, 20);
-            if (!token) return {code: 400, error: 'Missing required fields'};
-
-            try {
-                const tokenObject         = _helpers.parseJsonToObject(await _data.read('tokens', token));
-                if(!tokenObject || tokenObject.expires>Date.now()) return {code: 400, error:'token expired'}
-
-                const updatedTokenObject = {...tokenObject, expires: (Date.now()+1000*60*60) };
-                await _data.update('tokens', token, updatedTokenObject);
-                return {code: 200, payload: updatedTokenObject};
-            }
-            catch (e) { return {code: 404}; }
-            
+            return getTokenFromQs(data, token =>
+                ifErrorBelowThen({code: 404},
+                readTokenObject(token, oldTokenObject =>
+                updateExpires(oldTokenObject, updatedTokenObject =>
+                http200WithPayload(_data.update('tokens', token, updatedTokenObject), updatedTokenObject)))));
         },
         delete: async (data             ) => {
-            const qs = data.queryStringObject;
-            if(!qs) return {code: 400, error: 'Missing required fields'};
-            const token = inputOrFalse(qs.token, 10);
-            if(!token) return {code: 400, error: 'Missing required fields'};
-            try{
-                await _data.delete('tokens', token);
-                return {code: 200};
-            }
-            catch(e) { return {code: 404}; }
+            return getTokenFromQs(data, token=>
+                ifErrorBelowThen({code: 404},
+                http200(_data.delete('tokens', token))));
         }
     },
     notFound: async (data             ) => Promise.resolve({code: 404})
 };
 
-const isTokenValid = async (token        , phone        )                    =>{
+const readTokenObject = async (token        , continueWith                                                              ) => {
+    const tokenObject         = _helpers.parseJsonToObject(await _data.read('tokens', token));
+    console.log('got token from db', tokenObject);
+    if(!tokenObject) return {code: 404};
+    if(tokenObject.expires<Date.now()){
+        console.log('token is expired');
+        _data.delete('tokens', token);
+        return {code: 400, error: 'token expired'};
+    }
+    else
+    {
+        console.log('token object successfully read');
+        return continueWith(tokenObject);
+    }
+}
+
+const updateExpires = async (token       , continueWith                                                              ) => {
+    const updatedTokenObject = {...token, expires: newTokenExpirationDate()};
+    await _data.update('tokens', token.token, updatedTokenObject);
+    return continueWith(updatedTokenObject);
+}
+
+const getTokenFromQs = async (data             , continueWith                                                ) => {
+    const qs = data.queryStringObject;
+    if(!qs) return {code: 400, error: 'Missing required fields'};
+    const token = inputOrFalse(qs.token, 10);
+    if(!token) return {code: 400, error: 'Missing required fields'};
+    return continueWith(token);
+}
+
+const getExistingUserObjectByQsIdAndPayloadPassword = async (data             , continueWith                                                                )                                => {
+    const payload = data.payload;
+    if(!payload) return {code: 400, error: 'Missing required fields'};
+    const qs = data.queryStringObject;
+    if(!qs) return {code: 400, error: 'Missing required fields'};
+    const password = inputOrFalse(payload.password);
+    const userId = inputOrFalse(qs.userId, 10);
+    if (!password || !userId) return {code: 400, error: 'Missing required fields'};
+    const user = _helpers.parseJsonToObject(await _data.read('users', userId));
+    const inputPasswordHash = _helpers.hash(password);
+    if(!user || user.password !== inputPasswordHash) return {code: 404};
+    return continueWith(user, userId);
+}
+
+const createNewToken = async(userId        , continueWith                                        )=>{
+    const token = _helpers.createRandomString(20);
+    if(!token) return {code: 500, error: 'error generating auth token'};
+
+    const tokenObject = {
+        expires: newTokenExpirationDate(),
+        token,
+        userId
+    };
+
+    return continueWith(tokenObject);
+}
+
+const newTokenExpirationDate = () => Date.now() + 1000 * 60 * 60;
+
+const createNewId = (length        , continueWith                                          )                               => {
+    const newId = _helpers.createRandomString(length);
+    if(!newId) return Promise.resolve({code: 500, error: 'couldn\'t generate an id'});
+    return continueWith(newId);
+}
+
+const getUserDataFromPayload = async (data             , continueWith                                       )                               =>
+{
+    const payload = data.payload;
+    if(!payload) return {code: 400, error: 'Missing required fields'};
+    const user = getUserIfDataValid(payload);
+    if (!user) return {code: 400, error: 'Missing required fields'};
+    console.log('got user data from payload', user);
+    return continueWith(user);
+}
+
+const authenticate = async (data             , continueWith                                                                  )                               =>
+{
+    const qs = data.queryStringObject;
+    if(!qs) return {code: 400, error: 'Missing required fields'};
+    const userId = inputOrFalse(qs.userId, 10);
+    if(!userId) return {code: 400, error: 'Missing required fields'};
+    const token = inputOrFalse(data.headers.token, 20, 20);
+    if(!token || !(await isTokenValid(token, userId))) return {code: 403, error: 'No token or token did not match'};
+    console.log('authenticated successfully');
+    return continueWith(token, userId);
+}
+
+const readUserObject = async (userId         , continueWith                                              )                               =>
+{
+    const user = _helpers.parseJsonToObject(await _data.read('users', userId));
+    if(!user) return {code: 404};
+    return continueWith(user);
+}
+
+async function ifErrorBelowThen   (onError                  , continueWith                           )                           
+{
+    return continueWith.catch(e=>onError);
+}
+
+async function http200       (p             )                           
+{
+    await p;
+    return { code : 200 };
+}
+
+async function http200WithPayload       (p             , payload   )                           
+{
+    await p;
+    return { code : 200, payload };
+}
+
+const isTokenValid = async (token        , userId        )                    =>{
             try{
                 const tokenObject = _helpers.parseJsonToObject(await _data.read('tokens', token));
                 if(tokenObject)
                 {
-                    const result = tokenObject.expires >= Date.now() && tokenObject.phone === phone;
-                    console.log(tokenObject, phone, result, tokenObject.expires, Date.now(), tokenObject.phone === phone);
-                    return result;
+                    return tokenObject.expires >= Date.now() && tokenObject.userId === userId;
                 }
                 else return false;
             }
@@ -213,17 +226,19 @@ const getUserIfDataValid = (payload       )        => {
                 const firstName = inputOrFalse(payload.firstName);
                 const lastName = inputOrFalse(payload.lastName);
                 const password = inputOrFalse(payload.password);
-                const phone = inputOrFalse(payload.phone, 10);
+                const emailFromUser = inputOrFalse(payload.email);
+                const email = emailFromUser?validEmailOrFalse(emailFromUser):false;
                 const tosAgreement = payload.tosAgreement === true;
                 const hashedPassword = password ? _helpers.hash(password): false;
 
-                if(firstName && lastName && hashedPassword && phone && tosAgreement)
+                console.log('user data after validation:', {firstName ,  lastName ,  hashedPassword ,email, tosAgreement});
+                if(firstName && lastName && hashedPassword && email && tosAgreement)
                 {
                     return {
                         firstName,
                         lastName,
+                        email,
                         password: hashedPassword,
-                        phone,
                         tosAgreement
                     }
                 }
@@ -234,5 +249,12 @@ const inputOrFalse = (input        , minLen         = 1, maxLen         = 255) =
     (typeof (input) === 'string' && input.trim().length >= minLen && input.trim().length <= maxLen)
         ? input.trim()
         : false;
+
+const validEmailOrFalse = (input        ) => {
+    var re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    return re.test(input.toLowerCase())
+        ? input.toLowerCase()
+        : false;
+};
 
 module.exports = handlers;
