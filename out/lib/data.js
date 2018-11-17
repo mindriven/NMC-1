@@ -8,6 +8,7 @@ const writeFile = util.promisify(fs.writeFile);
 const close = util.promisify(fs.close);
 const ftruncate = util.promisify(fs.ftruncate);
 const unlink = util.promisify(fs.unlink);
+const readdir = util.promisify(fs.readdir);
 const readFile = util.promisify(fs.readFile);
 
 const lib = {};
@@ -29,6 +30,9 @@ lib.update = async (dir        , file        , data        ) => {
 
 lib.delete = async (dir        , file        ) => unlink(dataFile(dir, file));
 
+lib.listFiles = async (dir        ) => readdir(dataDir(dir));
+
 module.exports = lib;
 
-const dataFile = (dir        , file        ) => path.join(__dirname, '/../.data/') + dir + '/' + file + '.json'
+const dataDir = (dir        ) => path.join(__dirname, '/../.data/') + dir;
+const dataFile = (dir        , file        ) => dataDir(dir) + '/' + file + '.json'

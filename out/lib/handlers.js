@@ -32,8 +32,16 @@ const _helpers = require('./helpers');
                   
  
 
+                                                                                     
+                        
+
 const handlers = {
     ping: async () => Promise.resolve({code: 200}),
+    menu: async(data             )                                 => {
+        return data.method==='get'
+            ? {code: 200, payload: await _data.read('', 'menu')}
+            : Promise.resolve({code: 405});
+    },
     users: async (data             )                               => {
         const acceptableVerbs = ['post', 'get', 'put', 'delete'];
         return acceptableVerbs.includes(data.method)

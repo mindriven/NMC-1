@@ -15,7 +15,8 @@ import type {User, HandlerData} from './lib/handlers';
 const router = {
     '/ping': handlers.ping,
     '/users': handlers.users,
-    '/tokens': handlers.tokens
+    '/tokens': handlers.tokens,
+    '/menu': handlers.menu
 };
 
 const httpServer = http.createServer((req, res) => {serverLogic(req, res);});
@@ -56,7 +57,7 @@ async function serverLogic(req, res) {
             queryStringObject,
             method,
             headers,
-        payload: helpers.parseJsonToObject(buffer)
+            payload: helpers.parseJsonToObject(buffer)
         };
 
         const handlerResult = await handler(handlerData);
