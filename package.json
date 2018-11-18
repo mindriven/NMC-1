@@ -6,7 +6,7 @@
     "nodemon": "^1.18.5"
   },
   "scripts": {
-    "build": "flow-remove-types ./ -d out/ -i \"out|node_modules|noop.js\" -x .json,.js",
+    "build": "flow-remove-types ./ -d out/ -i \"out|node_modules|noop.js|nodemon.*.json|package.*.json\" -x .json,.js",
     "flow:": "flow check ./",
     "start": "nodemon ./out/index.js",
     "hot-build": "nodemon noop.js --config nodemon-rebuilding.json"

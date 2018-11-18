@@ -32,14 +32,14 @@ const _helpers = require('./helpers');
                   
  
 
-                                                                                     
+                                                                                                 
                         
 
 const handlers = {
     ping: async () => Promise.resolve({code: 200}),
-    menu: async(data             )                                 => {
+    menu: async(data             )                               => {
         return data.method==='get'
-            ? {code: 200, payload: await _data.read('', 'menu')}
+            ? getMenu()
             : Promise.resolve({code: 405});
     },
     users: async (data             )                               => {
@@ -106,6 +106,33 @@ const handlers = {
     },
     notFound: async (data             ) => Promise.resolve({code: 404})
 };
+
+const getMenu = async ()                                =>{
+    try{
+        const parsedObject = _helpers.parseJsonToObject(await _data.read('', 'menu'));
+        console.log('parsed menu', parsedObject);
+        if(!parsedObject || !(parsedObject instanceof Array)) return {code: 500};
+        const items = parsedObject.map(item=>(parseMenuItem(item))).filter(i=>i);
+        return {code: 200, payload: items};
+    }
+    catch(e)
+    {
+        console.log("exception during menu parsing", e);
+        return {code: 500};
+    }
+};
+
+const parseMenuItem = (item        )            => {
+    const id = inputOrFalse(item.id);
+    const name = inputOrFalse(item.name);
+    const description = inputOrFalse(item.description);
+    const category = inputOrFalse(item.category);
+    const price = item.price;
+
+    return (id && name && description && category && price)
+            ? {id, name, description, category, price}
+            : undefined;
+}
 
 const readTokenObject = async (token        , continueWith                                                              ) => {
     const tokenObject         = _helpers.parseJsonToObject(await _data.read('tokens', token));

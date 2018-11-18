@@ -1,1 +1,8 @@
-{33}
+[
+    {"id": "1", "name": "Pizza Pazza", "description": "finest pizza with everything", "category": "pizza", "price": 10.30},
+    {"id": "2", "name": "Salami&Bacon", "description": "needs on explanation", "category": "pizza", "price": 13.50},
+    {"id": "3", "name": "Diablo", "description": "mucho fuego", "category": "pizza", "price": 11.60},
+    {"id": "4", "name": "Spaghetti carbonara", "description": "pasta with carbonara sauce", "category": "pasta", "price": 11},
+    {"id": "5", "name": "Tortellini quatro formaggio", "description": "Tortellini filled with 4 different sorts of cheese", "category": "pasts", "price": 12},
+    {"id": "6", "name": "Organic Coke", "description": "coke", "category": "drinks", "price": 14}
+]
