@@ -17,7 +17,9 @@ const router = {
     '/users': handlers.users,
     '/tokens': handlers.tokens,
     '/menu': handlers.menu,
-    '/cart': handlers.cart
+    '/cart': handlers.cart,
+    '/checkout': handlers.checkout,
+    '/test': handlers.test,
 };
 
 const httpServer = http.createServer((req, res) => {serverLogic(req, res);});

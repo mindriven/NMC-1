@@ -1,6 +1,9 @@
 //      
+
 const _data = require('./data');
 const _helpers = require('./helpers');
+const https = require('https');
+const querystring = require('querystring');
 
 
                            
@@ -32,6 +35,30 @@ const _helpers = require('./helpers');
                   
  
 
+                      
+                  
+                     
+               
+                       
+                     
+              
+  
+
+                    
+                      
+                       
+               
+  
+
+                                                        
+              
+                               
+                        
+                   
+                        
+                     
+ 
+
                                                                                                  
 
 const handlers = {
@@ -52,7 +79,7 @@ const handlers = {
             return getUserDataFromPayload(data, user =>
                 ifErrorBelowThen({code: 400, error: 'User already exists'},
                 createNewId(20, userId =>
-                http200WithPayload(_data.create('users', userId, user), userId))));
+                http201(_data.create('users', userId, user), userId))));
         },
         get: async (data             )                               => {
             return authenticate(data,
@@ -85,19 +112,19 @@ const handlers = {
                 ifErrorBelowThen({code: 500, error: 'couldn\'t persist token'},
                 http200WithPayload(_data.create('tokens', tokenObject.token, tokenObject), tokenObject))));
         },
-        get: async (data             ) => {
+        get: async (data             )                                 => {
             return getTokenFromQs(data, token =>
                     ifErrorBelowThen({code: 404},
                     readTokenObject(token, tokenObject => Promise.resolve({code: 200, payload: tokenObject}))));
         },
-        put: async (data             ) => {
+        put: async (data             )                                 => {
             return getTokenFromQs(data, token =>
                 ifErrorBelowThen({code: 404},
                 readTokenObject(token, oldTokenObject =>
                 updateExpires(oldTokenObject, updatedTokenObject =>
                 http200WithPayload(_data.update('tokens', token, updatedTokenObject), updatedTokenObject)))));
         },
-        delete: async (data             ) => {
+        delete: async (data             )                                => {
             return getTokenFromQs(data, token=>
                 ifErrorBelowThen({code: 404},
                 http200(_data.delete('tokens', token))));
@@ -110,7 +137,7 @@ const handlers = {
             : Promise.resolve({code: 405});
     },
     _cart:{
-        post: async (data             )                                     => {
+        post: async (data             )                                   => {
             return authenticate(data, (token, userId) =>
                 ifErrorBelowThen({code: 500},
                 getMenuItemsIdsFromPayload(data, itemsIds => 
@@ -118,12 +145,12 @@ const handlers = {
                 http200(_data.createOrUpdate('carts', userId, [...cart, ...itemsIds]))))));
         }
         ,
-        get: async (data             )                                     => {
+        get: async (data             )                                   => {
             return authenticate(data, (token, userId) =>
                 ifErrorBelowThen({code: 500},
                 getCartForUser(userId, cart => Promise.resolve({code: 200, payload: cart}))));
         },
-        delete: async (data             )                                     => {
+        delete: async (data             )                                   => {
             return authenticate(data, (token, userId) =>
                 ifErrorBelowThen({code: 500},
                 getMenuItemsIdsFromPayload(data, itemsIds => 
@@ -131,13 +158,196 @@ const handlers = {
                 http200(_data.update('carts', userId, cart.filter(id=>itemsIds.includes(id))))))));
         },
     },
+    checkout: async (data             )                                 => {
+        return (data.method!=='post')
+            ? Promise.resolve({code: 405})
+            : authenticate(data, (token, userId) =>
+                ifErrorBelowThen({code: 500},
+                getCartForUser(userId, cart =>
+                // TODO archive old orders in a job
+                createAndPersistOrder(cart, userId, orderId =>
+                extractCardDataFromPayload(data, cardData =>
+                chargeCard(cardData, orderId, chargeId =>
+                updateOrderToPaid(orderId, chargeId,
+                http201(_data.delete('carts', userId), orderId))))))));
+    },
+    orders: async (data             )                                => {
+        return (data.method!=='get')
+            ? Promise.resolve({code: 405})
+            : authenticate(data, (token, userId) =>
+                ifErrorBelowThen({code: 500},
+                getOrderIdFromQs(data, orderId=>
+                getOrderByIdForUser(orderId, userId, order => Promise.resolve({code: 200, payload: order})))));
+    },
+    test: async (data             )                               => {
+        return Promise.resolve({code: 200});
+    },
     notFound: async (data             ) => Promise.resolve({code: 404})
 };
 
-const getCartForUser = async (userId        , continueWith                                                )                                     =>{
+                 
+                   
+                      
+                     
+               
+  
+
+async function extractCardDataFromPayload   (data             , continueWith                                       )                           
+{
+    return getPayload(data, async payload => {
+        const number = onlyDigitsOrFalse(payload.cardNumber, 16, 16);
+        const exp_month = onlyDigitsOrFalse(payload.exp_month, 1, 2);
+        const exp_year = onlyDigitsOrFalse(payload.exp_year, 4);
+        const cvc = onlyDigitsOrFalse(payload.cvc, 3);
+        return (number && exp_month && exp_year && cvc)
+            ?continueWith({number, exp_year, exp_month, cvc})
+            :{code: 400, error: 'missing required parameters'};
+    });
+}
+
+async function readOrder(orderId        )                 {
+    const order = _helpers.parseJsonToObject(await _data.read('orders', orderId));
+    if(!order) throw new Error('no order for id' + orderId + 'found');
+    return order;
+}
+
+async function updateOrderToPaid   (orderId        , chargeId        , continueWith                           )                            
+{
+    const order = _helpers.parseJsonToObject(await _data.read('orders', orderId));
+    if(!order) return {code: 500};
+    await _data.update('orders', orderId, {...order, chargeId, status:'paid'});
+    return continueWith;
+}
+
+const onlyDigitsOrFalse = (input        , minLen         , maxLen         ) =>{
+    const validated = inputOrFalse(input, minLen, maxLen);
+    if(!validated) return false;
+    return (/^\d+$/.test(validated))
+        ?validated
+        :false;
+}
+
+async function chargeCard   (cardData          , orderId        , continueWith                                     )                           
+{
+        //tokenize the card
+        const cardToken = await getCardTokenOrFalse(cardData);
+        if(!cardToken) return {code: 500};
+        //charge the card
+        const chargeId = await chargeCardOrFalse(cardToken, orderId);
+        if(!chargeId) return {code: 500};
+
+        return continueWith(chargeId);
+}
+
+async function getCardTokenOrFalse(cardData          )                       {
+    const requestData = `card[number]=${cardData.number}card[exp_month]=${cardData.exp_month}&card[exp_year]=${cardData.exp_year}&card[cvc]=${cardData.cvc}`;
+    const options = getStripePostOptions('/v1/tokens', requestData);
+    const rawResponse = await getResponseBodyAsString(options, requestData);
+    if(!rawResponse) return false;
+    const parsedResponse = _helpers.parseJsonToObject(rawResponse);
+    if(!parsedResponse) return false;
+    return parsedResponse.id || false;
+    
+};
+
+async function chargeCardOrFalse   (cardToken        , orderId        )                       
+{
+    const order = await readOrder(orderId);
+    const params = `amount=${order.totals.grossPrice}&currency=usd&description="Order number ${orderId}"&source=${cardToken}`;
+    const options = getStripePostOptions('v1/charges', params);
+    const rawResponse = await getResponseBodyAsString(options, params);
+    if(!rawResponse) return false;
+    const parsedResponse = _helpers.parseJsonToObject(rawResponse);
+    if(!parsedResponse) return false;
+    return parsedResponse.id || false;
+
+}
+
+async function getResponseBodyAsString(options        , requestData        )                       {
+    return new Promise((res, rej)=>{
+        const req = https.request(options, resp => {
+            let data = '';
+            resp.on('data', chunk => {data += chunk;});
+            resp.on('end', () => {
+                console.log('got all the response', data);
+                res(data);
+            });
+        });
+    
+        req.on('error', (e) => {
+            console.log("Error during calling request with options", options, e);
+            res(false);
+        });
+        req.write(requestData);
+        req.end();
+    });
+}
+
+function getStripePostOptions(path        , requestData        )        {
+    const options = {
+        method: 'POST',
+        host: 'api.stripe.com',
+        path: path,
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Length': Buffer.byteLength(requestData),
+            //TODO move this to config
+            'Authorization': 'Bearer sk_test_4eC39HqLyjWDarjtT1zdp7dc'
+        }
+    };
+    return options;
+}
+async function getOrderByIdForUser(orderId        , userId        , continueWith                                        )                               
+{
+    const order = _helpers.parseJsonToObject(await _data.read('orders', orderId));
+    if(!order) return {code: 404};
+    if(order.userId!==userId) return{code: 403};
+    return continueWith(order);
+}
+
+async function getOrderIdFromQs(data             , continueWith                                         )                               
+{
+    return getQS(data, async qs=>{
+        const orderId = inputOrFalse(qs.orderId);
+        if(!orderId) return {code: 400, error: 'Missing required fields'};
+        return continueWith(orderId);
+    });
+}
+
+async function createAndPersistOrder   (cart          , userId        , continueWith                                     )                           
+{    
+    const productIdsUnique           = cart.filter((value, index, self)=>self.indexOf(value) === index); 
+    const menu = await getMenu();
+    const orderPositions                  = productIdsUnique.map(id=>{
+        const menuItem = menu.find(menuItem => menuItem.id===id);
+        if(!menuItem) return {itemId:id, itemName: 'product does no longer exist', qty:0, grossPrice:0, netPrice:0, tax:0};
+        const qty = cart.filter(i=>i===id).length
+        const taxRate = 0.23;// TODO move to config
+        const grossPrice = qty*menuItem.price;
+        const tax = grossPrice * taxRate;
+        const netPrice = grossPrice - tax;
+        return { itemId:id, itemName: menuItem.name, qty, grossPrice, netPrice, tax };
+    });
+
+    const totals = orderPositions.reduce((acc             , position               )=>{
+        acc.netPrice+=position.netPrice;
+        acc.tax += position.tax;
+        acc.grossPrice += position.grossPrice;
+        return acc;
+    }, {netPrice: 0, grossPrice: 0, tax: 0});
+
+    const order = {positions: orderPositions, totals, userId};
+    const orderId = _helpers.createRandomString(20);
+    if(!orderId) return {code:500};
+    await _data.create('orders', orderId, order);
+    return continueWith(orderId);
+
+}
+
+async function getCartForUser   (userId        , continueWith                                     )                           {
     let cart = [];
     try{
-        cart = _helpers.parseJsonToObject(await _data.read('carts', userId));
+        cart = _helpers.parseJsonToObject(await _data.read('carts', userId)) || [];
     }
     catch(e){
         console.log('could not read cart for id', userId);
@@ -145,19 +355,22 @@ const getCartForUser = async (userId        , continueWith                      
     return continueWith(cart);
 }
 
-const getMenuItemsIdsFromPayload = async (data             , continueWith                                                )                                      =>{
+async function getMenuItemsIdsFromPayload   (data             , continueWith                                     )                            {
     return getPayload(data, async payload =>{
-        const sentIds = Number.isInteger(payload)
-        ? [payload]
-        : (payload instanceof Array)
-        ? payload.map(id=>Number.isInteger(id)?id:undefined).filter(id=>id)
-        : []
-        const validMenuIds = (await getMenu()).map(item=>item.id);
-        const validItemsMenuFromPayload = sentIds.filter(id=>validMenuIds.includes(id));
+        const sentIds            = getIntsFromPayload(payload);
+        const validMenuIds           = (await getMenu()).map(item=>item.id);
+        const validItemsMenuFromPayload           = sentIds.filter(id=>validMenuIds.includes(id));
         console.log('getMenuItemsIdsFromPayload', validItemsMenuFromPayload, validMenuIds, sentIds);
         if(!validItemsMenuFromPayload.length) return {code: 400, error:'no valid menu items ids found'}
         return continueWith(validItemsMenuFromPayload);
     });
+}
+
+const getIntsFromPayload = (payload        )            =>
+{
+    if(typeof payload === 'number') return [Number.parseInt(payload)];
+    if(payload instanceof Array) return payload.map(id=>Number.isInteger(id)?id:undefined).filter(id=>id);
+    return [];
 }
 
 const getMenu = async () =>{
@@ -202,12 +415,13 @@ const updateExpires = async (token       , continueWith                         
     return continueWith(updatedTokenObject);
 }
 
-const getTokenFromQs = async (data             , continueWith                                                ) => {
-    const qs = data.queryStringObject;
-    if(!qs) return {code: 400, error: 'Missing required fields'};
-    const token = inputOrFalse(qs.token, 10);
-    if(!token) return {code: 400, error: 'Missing required fields'};
-    return continueWith(token);
+async function getTokenFromQs   (data             , continueWith                                            )                           
+{
+    return getQS(data, async qs=>{
+        const token = inputOrFalse(qs.token, 10);
+        if(!token) return {code: 400, error: 'Missing required fields'};
+        return continueWith(token);
+    })
 }
 
 async function getPayload   (data             , continueWith                                   )                            
@@ -217,10 +431,21 @@ async function getPayload   (data             , continueWith                    
     return continueWith(payload);
 }
 
+async function getQS   (data             , continueWith                                   )                            
+{
+    const qs = data.queryStringObject;
+    if(!qs) return {code: 400, error: 'Missing required fields'};
+    return continueWith(qs);
+}
+
+async function getPayloadAndQs   (data             , continueWith                                               )                            
+{
+    return getPayload(data, async payload=> getQS(data, async qs=>continueWith(payload, qs)));
+}
+
+
 const getExistingUserObjectByQsIdAndPayloadPassword = async (data             , continueWith                                                                )                                => {
-    return getPayload(data, async payload=>{
-        const qs = data.queryStringObject;
-        if(!qs) return {code: 400, error: 'Missing required fields'};
+    return getPayloadAndQs(data, async (payload, qs)=>{   
         const password = inputOrFalse(payload.password);
         const userId = inputOrFalse(qs.userId, 10);
         if (!password || !userId) return {code: 400, error: 'Missing required fields'};
@@ -254,12 +479,12 @@ async function createNewId   (length        , continueWith                      
 
 async function getUserDataFromPayload   (data             , continueWith                                    )                           
 {
-    const payload = data.payload;
-    if(!payload) return {code: 400, error: 'Missing required fields'};
-    const user = getUserIfDataValid(payload);
-    if (!user) return {code: 400, error: 'Missing required fields'};
-    console.log('got user data from payload', user);
-    return continueWith(user);
+    return getPayload(data, async payload => {
+        const user = getUserIfDataValid(payload);
+        if (!user) return {code: 400, error: 'Missing required fields'};
+        console.log('got user data from payload', user);
+        return continueWith(user);
+    });
 }
 
 async function authenticate   (data             , continueWith                                                               )                           
@@ -298,6 +523,12 @@ async function http200WithPayload       (p             , payload   )
 {
     await p;
     return { code : 200, payload };
+}
+
+async function http201       (p             , payload   )                           
+{
+    await p;
+    return { code : 201, payload };
 }
 
 const getUserIfDataValid = (payload       )        => {
