@@ -8,8 +8,9 @@ const config = require('../configs');
 const handlers = require('./handlers');
 const helpers = require('../helpers');
 const fs = require('fs');
+const _logger = require('../logger');
 
-                                                 
+                                            
 
 const router = {
     '/ping': handlers.ping,
@@ -18,7 +19,7 @@ const router = {
     '/menu': handlers.menu,
     '/cart': handlers.cart,
     '/checkout': handlers.checkout,
-    '/test': handlers.test,
+    '/orders': handlers.orders,
 };
 
 
@@ -31,11 +32,11 @@ function start(){
     const httpServer = http.createServer((req, res) => {serverLogic(req, res);});
     
     httpServer.listen(config.httpPort, () => {
-        console.log('the http server is listening on port ' + config.httpPort + ' now, configuration is', config.envName);
+        _logger.info('the http server is listening on port ' + config.httpPort + ' now, configuration is ' + config.envName);
     });
     
     httpsServer.listen(config.httpsPort, () => {
-        console.log('the https server is listening on port ' + config.httpsPort + ' now, configuration is', config.envName);
+        _logger.info('the https server is listening on port ' + config.httpsPort + ' now, configuration is ' + config.envName);
     });
 }
 
@@ -53,7 +54,9 @@ async function serverLogic(req, res) {
     });
     req.on('end', async () => {
         buffer += decoder.end();
-        console.log('request came in for path:', trimmedPath, buffer);
+        console.log();
+        _logger.info('request came in for path: ' + trimmedPath);
+        _logger.debug('requests payload: ' + buffer);
         const handler = router[trimmedPath] || handlers.notFound;
         const handlerData              = {
             trimmedPath,
@@ -67,11 +70,12 @@ async function serverLogic(req, res) {
 
         res.setHeader('Content-type', 'application/json');
         res.writeHead(handlerResult.code || 200);
-        const responseContent = handlerResult.code === 200 && handlerResult.payload
+        const responseContent = (handlerResult.code === 200 || handlerResult.code === 201)  && handlerResult.payload
                 ? JSON.stringify(handlerResult.payload)
                 : '';
         res.end(responseContent);
-        console.log('returning: ', handlerResult.code, responseContent);
+        _logger.info('returning: ' + handlerResult.code);
+        _logger.debug('response content', responseContent);
     });
 }
 

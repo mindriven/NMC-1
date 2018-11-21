@@ -10,6 +10,7 @@ const ftruncate = util.promisify(fs.ftruncate);
 const unlink = util.promisify(fs.unlink);
 const readdir = util.promisify(fs.readdir);
 const readFile = util.promisify(fs.readFile);
+const appendFile = util.promisify(fs.appendFile);
 
 const lib = {};
 
@@ -46,6 +47,13 @@ async function createOrUpdate   (dir        , file        , data                
 }
 
 lib.createOrUpdate = createOrUpdate;
+
+async function createOrAppend(dir        , file        , data     ){
+    await appendFile(dataDir(dir) + '/' + file + '.log', data);
+}
+
+lib.createOrAppend = createOrAppend;
+
 
 module.exports = lib;
 
