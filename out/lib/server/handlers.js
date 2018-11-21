@@ -1,143 +1,143 @@
-// @flow
+//      
 
-const _data = require('./data');
-const _helpers = require('./helpers');
+const _data = require('../data');
+const _helpers = require('../helpers');
 const https = require('https');
 const querystring = require('querystring');
 
 
-export type HandlerData = {
-    trimmedPath: string,
-    queryStringObject: Object,
-    method: string,
-    headers: Object,
-    payload: ?Object
-};
+                           
+                        
+                              
+                   
+                    
+                    
+  
 
-export type HandlerResult<T> = {
-    code: number,
-    error?: string,
-    payload?: T
-};
+                                
+                 
+                   
+               
+  
 
-export type User = {|
-    +id?: string,
-    +email: string,
-    +password: string,
-    +firstName: string,
-    +lastName: string,
-    +tosAgreement: boolean
-|};
+                     
+                 
+                   
+                      
+                       
+                      
+                          
+   
 
-export type Token = {
-    expires: number,
-    token: string,
-    userId: string
-}
+                     
+                    
+                  
+                  
+ 
 
-type OrderPosition = {
-    itemId:number,
-    itemName: string,
-    qty:number,
-    grossPrice: number,
-    netPrice: number,
-    tax:number
-};
+                      
+                  
+                     
+               
+                       
+                     
+              
+  
 
-type OrderTotals = {
-    netPrice: number, 
-    grossPrice: number,
-    tax: number
-};
+                    
+                      
+                       
+               
+  
 
-type OrderStatus = 'created' | 'paid' | 'invoiceMailed';
-type Order = {
-    positions: OrderPosition[],
-    totals: OrderTotals,
-    userId: string,
-    status: OrderStatus,
-    chargeId: ?string
-}
+                                                        
+              
+                               
+                        
+                   
+                        
+                     
+ 
 
-type MenuItem = {id: number, name: string, description: string, category: string, price: number};
+                                                                                                 
 
 const handlers = {
     ping: async () => Promise.resolve({code: 200}),
-    menu: async(data: HandlerData): Promise<HandlerResult<MenuItem[]>> => {
+    menu: async(data             )                                     => {
         return data.method==='get'
             ? ifErrorBelowThen({code: 500}, Promise.resolve({code: 200, payload: await getMenu()}))
             : Promise.resolve({code: 405});
     },
-    users: async (data: HandlerData): Promise<HandlerResult<User|string>> => {
+    users: async (data             )                                      => {
         const acceptableVerbs = ['post', 'get', 'put', 'delete'];
         return acceptableVerbs.includes(data.method)
             ? handlers._users[data.method](data)
             : Promise.resolve({code: 405});
     },
     _users: {
-        post: async (data: HandlerData): Promise<HandlerResult<string>> => {
+        post: async (data             )                                 => {
             return getUserDataFromPayload(data, user =>
                 ifErrorBelowThen({code: 400, error: 'User already exists'},
                 createNewId(20, userId =>
                 http201(_data.create('users', userId, user), userId))));
         },
-        get: async (data: HandlerData): Promise<HandlerResult<User>> => {
+        get: async (data             )                               => {
             return authenticate(data,
                 (token, userId) => ifErrorBelowThen({code: 404},
                 readUserObject(userId, 
                 (user)=>{delete user.password; return Promise.resolve({code: 200, payload: user})})));
         },
-        put: async (data: HandlerData) : Promise<HandlerResult<User>> => {
+        put: async (data             )                                => {
             return authenticate(data,
                 (token, userId) => getUserDataFromPayload(data,
                 user => ifErrorBelowThen({code: 404},
                 http200(_data.update('users', userId, user)))));
         },
-        delete: async (data: HandlerData) : Promise<HandlerResult<User>> => {
+        delete: async (data             )                                => {
             return authenticate(data,
                 (token, userId) => ifErrorBelowThen({code: 404},
                 http200(_data.delete('users', userId))));
         },
     },
-    tokens: async (data: HandlerData): Promise<HandlerResult<Token>> => {
+    tokens: async (data             )                                => {
         const acceptableVerbs = ['post', 'get', 'put', 'delete'];
         return (acceptableVerbs.includes(data.method))
             ? handlers._tokens[data.method](data)
             : Promise.resolve({code: 405});
     },
     _tokens: {
-        post: async (data: HandlerData): Promise<HandlerResult<Token>> => {
+        post: async (data             )                                => {
             return getExistingUserObjectByQsIdAndPayloadPassword(data, (user, userId) =>
                 createNewToken(userId, tokenObject =>
                 ifErrorBelowThen({code: 500, error: 'couldn\'t persist token'},
                 http200WithPayload(_data.create('tokens', tokenObject.token, tokenObject), tokenObject))));
         },
-        get: async (data: HandlerData) : Promise<HandlerResult<Token>> => {
+        get: async (data             )                                 => {
             return getTokenFromQs(data, token =>
                     ifErrorBelowThen({code: 404},
                     readTokenObject(token, tokenObject => Promise.resolve({code: 200, payload: tokenObject}))));
         },
-        put: async (data: HandlerData) : Promise<HandlerResult<Token>> => {
+        put: async (data             )                                 => {
             return getTokenFromQs(data, token =>
                 ifErrorBelowThen({code: 404},
                 readTokenObject(token, oldTokenObject =>
                 updateExpires(oldTokenObject, updatedTokenObject =>
                 http200WithPayload(_data.update('tokens', token, updatedTokenObject), updatedTokenObject)))));
         },
-        delete: async (data: HandlerData) : Promise<HandlerResult<void>> => {
+        delete: async (data             )                                => {
             return getTokenFromQs(data, token=>
                 ifErrorBelowThen({code: 404},
                 http200(_data.delete('tokens', token))));
         }
     },
-    cart: async (data: HandlerData): Promise<HandlerResult<MenuItem[]>> => {
+    cart: async (data             )                                     => {
         const acceptableVerbs = ['post', 'get', 'delete'];
         return (acceptableVerbs.includes(data.method))
             ? handlers._cart[data.method](data)
             : Promise.resolve({code: 405});
     },
     _cart:{
-        post: async (data: HandlerData): Promise<HandlerResult<number[]>> => {
+        post: async (data             )                                   => {
             return authenticate(data, (token, userId) =>
                 ifErrorBelowThen({code: 500},
                 getMenuItemsIdsFromPayload(data, itemsIds => 
@@ -145,12 +145,12 @@ const handlers = {
                 http200(_data.createOrUpdate('carts', userId, [...cart, ...itemsIds]))))));
         }
         ,
-        get: async (data: HandlerData): Promise<HandlerResult<number[]>> => {
+        get: async (data             )                                   => {
             return authenticate(data, (token, userId) =>
                 ifErrorBelowThen({code: 500},
                 getCartForUser(userId, cart => Promise.resolve({code: 200, payload: cart}))));
         },
-        delete: async (data: HandlerData): Promise<HandlerResult<number[]>> => {
+        delete: async (data             )                                   => {
             return authenticate(data, (token, userId) =>
                 ifErrorBelowThen({code: 500},
                 getMenuItemsIdsFromPayload(data, itemsIds => 
@@ -158,7 +158,7 @@ const handlers = {
                 http200(_data.update('carts', userId, cart.filter(id=>itemsIds.includes(id))))))));
         },
     },
-    checkout: async (data: HandlerData): Promise<HandlerResult<string>> => {
+    checkout: async (data             )                                 => {
         return (data.method!=='post')
             ? Promise.resolve({code: 405})
             : authenticate(data, (token, userId) =>
@@ -171,7 +171,7 @@ const handlers = {
                 updateOrderToPaid(orderId, chargeId,
                 http201(_data.delete('carts', userId), orderId))))))));
     },
-    orders: async (data: HandlerData): Promise<HandlerResult<Order>> => {
+    orders: async (data             )                                => {
         return (data.method!=='get')
             ? Promise.resolve({code: 405})
             : authenticate(data, (token, userId) =>
@@ -179,20 +179,20 @@ const handlers = {
                 getOrderIdFromQs(data, orderId=>
                 getOrderByIdForUser(orderId, userId, order => Promise.resolve({code: 200, payload: order})))));
     },
-    test: async (data: HandlerData): Promise<HandlerResult<void>> => {
+    test: async (data             )                               => {
         return Promise.resolve({code: 200});
     },
-    notFound: async (data: HandlerData) => Promise.resolve({code: 404})
+    notFound: async (data             ) => Promise.resolve({code: 404})
 };
 
-type CardData = {
-    number: string,
-    exp_month: string,
-    exp_year: string,
-    cvc: string
-};
+                 
+                   
+                      
+                     
+               
+  
 
-async function extractCardDataFromPayload<T>(data: HandlerData, continueWith: CardData => Promise<HandlerResult<T>>): Promise<HandlerResult<T>>
+async function extractCardDataFromPayload   (data             , continueWith                                       )                           
 {
     return getPayload(data, async payload => {
         const number = onlyDigitsOrFalse(payload.cardNumber, 16, 16);
@@ -205,13 +205,13 @@ async function extractCardDataFromPayload<T>(data: HandlerData, continueWith: Ca
     });
 }
 
-async function readOrder(orderId: string): Promise<Order> {
+async function readOrder(orderId        )                 {
     const order = _helpers.parseJsonToObject(await _data.read('orders', orderId));
     if(!order) throw new Error('no order for id' + orderId + 'found');
     return order;
 }
 
-async function updateOrderToPaid<T>(orderId: string, chargeId: string, continueWith: Promise<HandlerResult<T>>) : Promise<HandlerResult<T>>
+async function updateOrderToPaid   (orderId        , chargeId        , continueWith                           )                            
 {
     const order = _helpers.parseJsonToObject(await _data.read('orders', orderId));
     if(!order) return {code: 500};
@@ -219,7 +219,7 @@ async function updateOrderToPaid<T>(orderId: string, chargeId: string, continueW
     return continueWith;
 }
 
-const onlyDigitsOrFalse = (input: string, minLen?: number, maxLen?: number) =>{
+const onlyDigitsOrFalse = (input        , minLen         , maxLen         ) =>{
     const validated = inputOrFalse(input, minLen, maxLen);
     if(!validated) return false;
     return (/^\d+$/.test(validated))
@@ -227,7 +227,7 @@ const onlyDigitsOrFalse = (input: string, minLen?: number, maxLen?: number) =>{
         :false;
 }
 
-async function chargeCard<T>(cardData: CardData, orderId: string, continueWith: string => Promise<HandlerResult<T>>): Promise<HandlerResult<T>>
+async function chargeCard   (cardData          , orderId        , continueWith                                     )                           
 {
         //tokenize the card
         const cardToken = await getCardTokenOrFalse(cardData);
@@ -239,7 +239,7 @@ async function chargeCard<T>(cardData: CardData, orderId: string, continueWith: 
         return continueWith(chargeId);
 }
 
-async function getCardTokenOrFalse(cardData: CardData): Promise<string|false>{
+async function getCardTokenOrFalse(cardData          )                       {
     const requestData = `card[number]=${cardData.number}card[exp_month]=${cardData.exp_month}&card[exp_year]=${cardData.exp_year}&card[cvc]=${cardData.cvc}`;
     const options = getStripePostOptions('/v1/tokens', requestData);
     const rawResponse = await getResponseBodyAsString(options, requestData);
@@ -250,7 +250,7 @@ async function getCardTokenOrFalse(cardData: CardData): Promise<string|false>{
     
 };
 
-async function chargeCardOrFalse<T>(cardToken: string, orderId: string): Promise<string|false>
+async function chargeCardOrFalse   (cardToken        , orderId        )                       
 {
     const order = await readOrder(orderId);
     const params = `amount=${order.totals.grossPrice}&currency=usd&description="Order number ${orderId}"&source=${cardToken}`;
@@ -263,7 +263,7 @@ async function chargeCardOrFalse<T>(cardToken: string, orderId: string): Promise
 
 }
 
-async function getResponseBodyAsString(options: Object, requestData: string): Promise<string|false>{
+async function getResponseBodyAsString(options        , requestData        )                       {
     return new Promise((res, rej)=>{
         const req = https.request(options, resp => {
             let data = '';
@@ -283,7 +283,7 @@ async function getResponseBodyAsString(options: Object, requestData: string): Pr
     });
 }
 
-function getStripePostOptions(path: string, requestData: string): Object{
+function getStripePostOptions(path        , requestData        )        {
     const options = {
         method: 'POST',
         host: 'api.stripe.com',
@@ -297,7 +297,7 @@ function getStripePostOptions(path: string, requestData: string): Object{
     };
     return options;
 }
-async function getOrderByIdForUser(orderId: string, userId: string, continueWith: Order => Promise<HandlerResult<Order>>): Promise<HandlerResult<Order>>
+async function getOrderByIdForUser(orderId        , userId        , continueWith                                        )                               
 {
     const order = _helpers.parseJsonToObject(await _data.read('orders', orderId));
     if(!order) return {code: 404};
@@ -305,7 +305,7 @@ async function getOrderByIdForUser(orderId: string, userId: string, continueWith
     return continueWith(order);
 }
 
-async function getOrderIdFromQs(data: HandlerData, continueWith: string => Promise<HandlerResult<Order>>): Promise<HandlerResult<Order>>
+async function getOrderIdFromQs(data             , continueWith                                         )                               
 {
     return getQS(data, async qs=>{
         const orderId = inputOrFalse(qs.orderId);
@@ -314,11 +314,11 @@ async function getOrderIdFromQs(data: HandlerData, continueWith: string => Promi
     });
 }
 
-async function createAndPersistOrder<T>(cart: number[], userId: string, continueWith: string => Promise<HandlerResult<T>>): Promise<HandlerResult<T>>
+async function createAndPersistOrder   (cart          , userId        , continueWith                                     )                           
 {    
-    const productIdsUnique: number[] = cart.filter((value, index, self)=>self.indexOf(value) === index); 
+    const productIdsUnique           = cart.filter((value, index, self)=>self.indexOf(value) === index); 
     const menu = await getMenu();
-    const orderPositions: OrderPosition[] = productIdsUnique.map(id=>{
+    const orderPositions                  = productIdsUnique.map(id=>{
         const menuItem = menu.find(menuItem => menuItem.id===id);
         if(!menuItem) return {itemId:id, itemName: 'product does no longer exist', qty:0, grossPrice:0, netPrice:0, tax:0};
         const qty = cart.filter(i=>i===id).length
@@ -329,7 +329,7 @@ async function createAndPersistOrder<T>(cart: number[], userId: string, continue
         return { itemId:id, itemName: menuItem.name, qty, grossPrice, netPrice, tax };
     });
 
-    const totals = orderPositions.reduce((acc: OrderTotals, position: OrderPosition)=>{
+    const totals = orderPositions.reduce((acc             , position               )=>{
         acc.netPrice+=position.netPrice;
         acc.tax += position.tax;
         acc.grossPrice += position.grossPrice;
@@ -344,7 +344,7 @@ async function createAndPersistOrder<T>(cart: number[], userId: string, continue
 
 }
 
-async function getCartForUser<T>(userId: string, continueWith: number[]=>Promise<HandlerResult<T>>): Promise<HandlerResult<T>>{
+async function getCartForUser   (userId        , continueWith                                     )                           {
     let cart = [];
     try{
         cart = _helpers.parseJsonToObject(await _data.read('carts', userId)) || [];
@@ -355,18 +355,18 @@ async function getCartForUser<T>(userId: string, continueWith: number[]=>Promise
     return continueWith(cart);
 }
 
-async function getMenuItemsIdsFromPayload<T>(data: HandlerData, continueWith: number[]=>Promise<HandlerResult<T>>) : Promise<HandlerResult<T>>{
+async function getMenuItemsIdsFromPayload   (data             , continueWith                                     )                            {
     return getPayload(data, async payload =>{
-        const sentIds : number[] = getIntsFromPayload(payload);
-        const validMenuIds :number[] = (await getMenu()).map(item=>item.id);
-        const validItemsMenuFromPayload :number[] = sentIds.filter(id=>validMenuIds.includes(id));
+        const sentIds            = getIntsFromPayload(payload);
+        const validMenuIds           = (await getMenu()).map(item=>item.id);
+        const validItemsMenuFromPayload           = sentIds.filter(id=>validMenuIds.includes(id));
         console.log('getMenuItemsIdsFromPayload', validItemsMenuFromPayload, validMenuIds, sentIds);
         if(!validItemsMenuFromPayload.length) return {code: 400, error:'no valid menu items ids found'}
         return continueWith(validItemsMenuFromPayload);
     });
 }
 
-const getIntsFromPayload = (payload: Object) : number[] =>
+const getIntsFromPayload = (payload        )            =>
 {
     if(typeof payload === 'number') return [Number.parseInt(payload)];
     if(payload instanceof Array) return payload.map(id=>Number.isInteger(id)?id:undefined).filter(id=>id);
@@ -381,7 +381,7 @@ const getMenu = async () =>{
     return items;
 };
 
-const parseMenuItem = (item: Object): ?MenuItem => {
+const parseMenuItem = (item        )            => {
     const id = inputOrFalse(item.id);
     const name = inputOrFalse(item.name);
     const description = inputOrFalse(item.description);
@@ -393,8 +393,8 @@ const parseMenuItem = (item: Object): ?MenuItem => {
             : undefined;
 }
 
-const readTokenObject = async (token: string, continueWith: (updatedTokenObject: Token) => Promise<HandlerResult<Token>>) => {
-    const tokenObject: ?Token = _helpers.parseJsonToObject(await _data.read('tokens', token));
+const readTokenObject = async (token        , continueWith                                                              ) => {
+    const tokenObject         = _helpers.parseJsonToObject(await _data.read('tokens', token));
     console.log('got token from db', tokenObject);
     if(!tokenObject) return {code: 404};
     if(tokenObject.expires<Date.now()){
@@ -409,13 +409,13 @@ const readTokenObject = async (token: string, continueWith: (updatedTokenObject:
     }
 }
 
-const updateExpires = async (token: Token, continueWith: (updatedTokenObject: Token) => Promise<HandlerResult<Token>>) => {
+const updateExpires = async (token       , continueWith                                                              ) => {
     const updatedTokenObject = {...token, expires: newTokenExpirationDate()};
     await _data.update('tokens', token.token, updatedTokenObject);
     return continueWith(updatedTokenObject);
 }
 
-async function getTokenFromQs<T>(data: HandlerData, continueWith: (token: string)=>Promise<HandlerResult<T>>): Promise<HandlerResult<T>>
+async function getTokenFromQs   (data             , continueWith                                            )                           
 {
     return getQS(data, async qs=>{
         const token = inputOrFalse(qs.token, 10);
@@ -424,27 +424,27 @@ async function getTokenFromQs<T>(data: HandlerData, continueWith: (token: string
     })
 }
 
-async function getPayload<T>(data: HandlerData, continueWith: Object=>Promise<HandlerResult<T>>) : Promise<HandlerResult<T>>
+async function getPayload   (data             , continueWith                                   )                            
 {
     const payload = data.payload;
     if(!payload) return {code: 400, error: 'Missing required fields'};
     return continueWith(payload);
 }
 
-async function getQS<T>(data: HandlerData, continueWith: Object=>Promise<HandlerResult<T>>) : Promise<HandlerResult<T>>
+async function getQS   (data             , continueWith                                   )                            
 {
     const qs = data.queryStringObject;
     if(!qs) return {code: 400, error: 'Missing required fields'};
     return continueWith(qs);
 }
 
-async function getPayloadAndQs<T>(data: HandlerData, continueWith: (Object, Object) => Promise<HandlerResult<T>>) : Promise<HandlerResult<T>>
+async function getPayloadAndQs   (data             , continueWith                                               )                            
 {
     return getPayload(data, async payload=> getQS(data, async qs=>continueWith(payload, qs)));
 }
 
 
-const getExistingUserObjectByQsIdAndPayloadPassword = async (data: HandlerData, continueWith : (user: User, userId: string) => Promise<HandlerResult<Token>>): Promise<HandlerResult<Token>> => {
+const getExistingUserObjectByQsIdAndPayloadPassword = async (data             , continueWith                                                                )                                => {
     return getPayloadAndQs(data, async (payload, qs)=>{   
         const password = inputOrFalse(payload.password);
         const userId = inputOrFalse(qs.userId, 10);
@@ -456,7 +456,7 @@ const getExistingUserObjectByQsIdAndPayloadPassword = async (data: HandlerData, 
     });
 }
 
-const createNewToken = async(userId: string, continueWith: Token => Promise<HandlerResult<Token>>)=>{
+const createNewToken = async(userId        , continueWith                                        )=>{
     const token = _helpers.createRandomString(20);
     if(!token) return {code: 500, error: 'error generating auth token'};
 
@@ -471,13 +471,13 @@ const createNewToken = async(userId: string, continueWith: Token => Promise<Hand
 
 const newTokenExpirationDate = () => Date.now() + 1000 * 60 * 60;
 
-async function createNewId<T>(length: number, continueWith: (string => Promise<HandlerResult<T>>)): Promise<HandlerResult<T>> {
+async function createNewId   (length        , continueWith                                       )                            {
     const newId = _helpers.createRandomString(length);
     if(!newId) return Promise.resolve({code: 500, error: 'couldn\'t generate an id'});
     return continueWith(newId);
 }
 
-async function getUserDataFromPayload<T>(data: HandlerData, continueWith : User => Promise<HandlerResult<T>>): Promise<HandlerResult<T>>
+async function getUserDataFromPayload   (data             , continueWith                                    )                           
 {
     return getPayload(data, async payload => {
         const user = getUserIfDataValid(payload);
@@ -487,7 +487,7 @@ async function getUserDataFromPayload<T>(data: HandlerData, continueWith : User 
     });
 }
 
-async function authenticate<T>(data: HandlerData, continueWith : (token: string, userId: string) => Promise<HandlerResult<T>>): Promise<HandlerResult<T>>
+async function authenticate   (data             , continueWith                                                               )                           
 {
     const token = inputOrFalse(data.headers.token, 20, 20);
     if(!token) return {code: 403, error: 'No token or token did not match'};
@@ -501,37 +501,37 @@ async function authenticate<T>(data: HandlerData, continueWith : (token: string,
     catch(e){return {code: 403, error: 'No token or token did not match'};}
 }
 
-const readUserObject = async (userId : string, continueWith: (user: User) => Promise<HandlerResult<User>>): Promise<HandlerResult<User>> =>
+const readUserObject = async (userId         , continueWith                                              )                               =>
 {
     const user = _helpers.parseJsonToObject(await _data.read('users', userId));
     if(!user) return {code: 404};
     return continueWith(user);
 }
 
-async function ifErrorBelowThen<T>(onError: HandlerResult<T>, continueWith: Promise<HandlerResult<T>>): Promise<HandlerResult<T>>
+async function ifErrorBelowThen   (onError                  , continueWith                           )                           
 {
     return continueWith.catch(e=>onError);
 }
 
-async function http200<T, V> (p: Promise<?T>): Promise<HandlerResult<V>>
+async function http200       (p             )                           
 {
     await p;
     return { code : 200 };
 }
 
-async function http200WithPayload<T, V> (p: Promise<?V>, payload: T): Promise<HandlerResult<T>>
+async function http200WithPayload       (p             , payload   )                           
 {
     await p;
     return { code : 200, payload };
 }
 
-async function http201<T, V> (p: Promise<?V>, payload: T): Promise<HandlerResult<T>>
+async function http201       (p             , payload   )                           
 {
     await p;
     return { code : 201, payload };
 }
 
-const getUserIfDataValid = (payload:Object): ?User => {
+const getUserIfDataValid = (payload       )        => {
                 const firstName = inputOrFalse(payload.firstName);
                 const lastName = inputOrFalse(payload.lastName);
                 const password = inputOrFalse(payload.password);
@@ -554,12 +554,12 @@ const getUserIfDataValid = (payload:Object): ?User => {
                 else return undefined;
             };
 
-const inputOrFalse = (input: string, minLen: number = 1, maxLen: number = 255) =>
+const inputOrFalse = (input        , minLen         = 1, maxLen         = 255) =>
     (typeof (input) === 'string' && input.trim().length >= minLen && input.trim().length <= maxLen)
         ? input.trim()
         : false;
 
-const validEmailOrFalse = (input: string) => {
+const validEmailOrFalse = (input        ) => {
     var re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
     return re.test(input.toLowerCase())
         ? input.toLowerCase()
