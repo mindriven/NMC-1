@@ -9,10 +9,10 @@ const _logger = require('./logger.js');
 _data.makeSureDirectoriesExist('users', 'orders', 'carts', 'tokens', '.logs');
 
 const dal = {};
-dal.findUserById = async (id        )                 => _helpers.parseJsonToObject(await _data.read('users', id));
-dal.findOrderById = async (id        )                  => _helpers.parseJsonToObject(await _data.read('orders', id));
-dal.findTokenById = async (id        )                  => _helpers.parseJsonToObject(await _data.read('tokens', id));
-dal.findCartByUserId = async (id        )                 => _helpers.parseJsonToObject(await _data.read('carts', id));
+dal.findUserById = (id        )                 => parseNoException(_data.read('users', id));
+dal.findOrderById = (id        )                  => parseNoException(_data.read('orders', id));
+dal.findTokenById = (id        )                  => parseNoException(_data.read('tokens', id));
+dal.findCartByUserId = (id        )                 => parseNoException(_data.read('carts', id));
 
 dal.saveUser = (user      )                => _data.createOrUpdate('users', user.id, user);
 dal.saveOrder = (order       )                => _data.createOrUpdate('orders', order.id, order);
@@ -31,13 +31,15 @@ dal.getAllOrders = async () => (await Promise.all((await _data.listFiles('orders
                                     .map(async id => await dal.findOrderById(id))))
                                     .filter(o=>o);
 
-const noException = async (promise               ) => {
-    try{
-        await promise;
-    }
-    catch(e){
-        _logger.error('exception was thrown, but will be muted by design', e);
-    }
+async function parseNoException   (promise                       )             {
+    const result  = await noException(promise);
+    return result? _helpers.parseJsonToObject(result) : undefined;
+}
+
+async function noException   (promise                 )                   {
+        return promise.catch(e=>{
+            _logger.error('exception was thrown, but will be muted by design', e);
+        });
 } 
 
 module.exports = dal;

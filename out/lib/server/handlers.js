@@ -266,9 +266,9 @@ function roundToTwo(num        )         {
     return +(Math.round(num*100)/100);
 }
 
-async function createAndPersistOrder   (cart          , userId        , continueWith                                    )                           
+async function createAndPersistOrder   (cart      , userId        , continueWith                                    )                           
 {    _logger.trace('creating order for user '+userId);
-    const productIdsUnique           = cart.filter((value, index, self)=>self.indexOf(value) === index); 
+    const productIdsUnique       = cart.filter((value, index, self)=>self.indexOf(value) === index); 
     const menu = await getMenu();
     const orderId = _helpers.createRandomString(20);
     if(!orderId) return {code:500};
@@ -282,6 +282,9 @@ async function createAndPersistOrder   (cart          , userId        , continue
         const netPrice = roundToTwo(grossPrice - tax);
         return { itemId:id, itemName: menuItem.name, qty, grossPrice, netPrice, tax };
     });
+    
+    // at least one valid position needed for successful checkout
+    if(orderPositions.filter(p=>p.grossPrice>0).length < 1) return {code:404, error: 'no cart items found'};
 
     const totals = orderPositions.reduce((acc             , position               )=>{
         acc.netPrice+=position.netPrice;
@@ -289,6 +292,7 @@ async function createAndPersistOrder   (cart          , userId        , continue
         acc.grossPrice += position.grossPrice;
         return acc;
     }, {netPrice: 0, grossPrice: 0, tax: 0});
+
 
     const order = {positions: orderPositions, totals, userId, status: 'created', id: orderId, createdAt: new Date()};
     await _dal.saveOrder(order);
