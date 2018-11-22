@@ -20,6 +20,7 @@ async function sendInvoices() {
             const user = await _dal.findUserById(order.userId);
             if (!user) {
                 _logger.error(`user with id ${order.userId} defined as creator of order ${order.id} does no longer exist`);
+                await _dal.saveOrder({...order, status: 'errorMailingInvoice'});
                 return undefined;
             }
             
@@ -41,6 +42,7 @@ async function sendInvoices() {
             }
             else{
                 _logger.error('there was a problem sending invoice for order '+order.id);
+                await _dal.saveOrder({...order, status: 'errorMailingInvoice'});
             }
         }
         catch(e)
@@ -54,8 +56,8 @@ async function sendInvoices() {
 function createMailBody(order       , user      )         {
     const positions = order.positions.map(p => `<tr>
                                                     <td>${p.itemId}-${p.itemName}</td>
-                                                    <td>${p.qty}</td>
-                                                    <td>${p.grossPrice}</td>
+                                                    <td>${p.qty.toFixed(2)}</td>
+                                                    <td>${p.grossPrice.toFixed(2)}</td>
                                                 </tr>`);
 
     return `<div><p>Hi ${user.firstName}, this is</p>
@@ -69,8 +71,8 @@ function createMailBody(order       , user      )         {
     ${positions.join('\r\n')}
 </table>
 <div>
-    <p>Order sum: ${order.totals.grossPrice}</p>
-    <p>Including tax: ${order.totals.tax}</p>
+    <p>Order sum: ${order.totals.grossPrice.toFixed(2)}</p>
+    <p>Including tax: ${order.totals.tax.toFixed(2)}</p>
     <p>Order was already paid via credit card, payment id: ${order.chargeId || ''}</p>
     <p>Thanks for ordering at our pizzeria!</p>
     <small>Please do not respond to this message. If you have any questions please contact us directly under 123456789.</small>
