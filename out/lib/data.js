@@ -15,7 +15,7 @@ const mkdir = util.promisify(fs.mkdir);
 
 const lib = {};
 
-async function create   (dir        , file        , data                 ){
+async function create   (dir        , file        , data                            ) {
     const descriptor = await open(dataFile(dir, file), 'wx');
     await writeFile(descriptor, JSON.stringify(data));
     await close(descriptor);
@@ -25,7 +25,7 @@ lib.create = create
 
 lib.read = async (dir        , file        )                  => readFile(dataFile(dir, file), 'utf8');
 
-async function update    (dir        , file        , data                 ) {
+async function update   (dir        , file        , data                            ) {
     const descriptor = await open(dataFile(dir, file), 'r+');
     await ftruncate(descriptor, 0);
     await writeFile(descriptor, JSON.stringify(data));
@@ -38,27 +38,27 @@ lib.delete = async (dir        , file        ) => unlink(dataFile(dir, file));
 
 lib.listFiles = async (dir        ) => readdir(dataDir(dir));
 
-async function createOrUpdate   (dir        , file        , data                 ){
-    try{
+async function createOrUpdate   (dir        , file        , data                            ) {
+    try {
         await update(dir, file, data);
     }
-    catch(e){
+    catch (e) {
         await create(dir, file, data);
     }
 }
 
 lib.createOrUpdate = createOrUpdate;
 
-async function createOrAppend(dir        , file        , data     ){
+async function createOrAppend(dir        , file        , data     ) {
     await appendFile(dataDir(dir) + '/' + file + '.log', data);
 }
 
 lib.createOrAppend = createOrAppend;
 
-lib.makeSureDirectoriesExist = async (...args          ) =>{
-    return Promise.all(args.map(async path=>{
+lib.makeSureDirectoriesExist = async (...args          ) => {
+    return Promise.all(args.map(async path => {
         const fullPath = dataDir(path);
-        if(!fs.existsSync(fullPath)){
+        if (!fs.existsSync(fullPath)) {
             await mkdir(fullPath);
         }
     }))
@@ -67,4 +67,4 @@ lib.makeSureDirectoriesExist = async (...args          ) =>{
 module.exports = lib;
 
 const dataDir = (dir        ) => path.join(__dirname, '/../.data/') + dir;
-const dataFile = (dir        , file        ) => dataDir(dir) + '/' + file + '.json'
+const dataFile = (dir        , file        ) => dataDir(dir) + '/' + (file.includes('.') ? file : (file + '.json'));

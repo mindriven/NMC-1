@@ -1,7 +1,7 @@
 //      
 
 const _helpers = require('../helpers');
-const _logger = require('../logger');
+const _logger = require('../logger')('handlers');
 const querystring = require('querystring');
 const _config = require('../configs');
 const _dal = require('../DAL');
