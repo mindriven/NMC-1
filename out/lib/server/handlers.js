@@ -3,8 +3,8 @@
 const _data = require('../data');
 const _helpers = require('../helpers');
 const _logger = require('../logger');
-const https = require('https');
 const querystring = require('querystring');
+const _config = require('../configs');
 
 
                            
@@ -21,8 +21,9 @@ const querystring = require('querystring');
                
   
 
-              
-                 
+                     
+                
+                     
                    
                       
                        
@@ -51,13 +52,15 @@ const querystring = require('querystring');
                
   
 
-                                                        
+                                                                                
                      
-                               
-                        
-                   
-                        
+                
                      
+                                
+                         
+                    
+                         
+                      
  
 
                                                                                                  
@@ -80,7 +83,7 @@ const handlers = {
             return getUserDataFromPayload(data, user =>
                 ifErrorBelowThen({code: 400, error: 'User already exists'},
                 createNewId(20, userId =>
-                http201(_data.create('users', userId, user), userId))));
+                http201(_data.create('users', userId, {...user, id: userId}), userId))));
         },
         get: async (data             )                               => {
             return authenticate(data,
@@ -165,12 +168,11 @@ const handlers = {
             : authenticate(data, (token, userId) =>
                 ifErrorBelowThen({code: 500},
                 getCartForUser(userId, cart =>
-                // TODO archive old orders in a job
-                createAndPersistOrder(cart, userId, orderId =>
+                createAndPersistOrder(cart, userId, order =>
                 extractCardDataFromPayload(data, cardData =>
-                chargeCard(cardData, orderId, chargeId =>
-                updateOrderToPaid(orderId, chargeId,
-                http201(_data.delete('carts', userId), orderId))))))));
+                chargeCard(cardData, order.id, chargeId =>
+                updateOrderToPaid(order.id, chargeId,
+                http201(_data.delete('carts', userId), order.id))))))));
     },
     orders: async (data             )                                => {
         return (data.method!=='get')
@@ -242,9 +244,14 @@ async function chargeCard   (cardData          , orderId        , continueWith  
 
 async function getCardTokenOrFalse(cardData          )                       {
     _logger.trace('will try to tokenize card data');
-    const requestData = `card[number]=${cardData.number}&card[exp_month]=${cardData.exp_month}&card[exp_year]=${cardData.exp_year}&card[cvc]=${cardData.cvc}`;
+    const requestData =  _helpers.encodePostData({
+        'card[number]':cardData.number,
+        'card[exp_month]':cardData.exp_month,
+        'card[exp_year]': cardData.exp_year,
+        'card[cvc]':cardData.cvc
+    });
     const options = getStripePostOptions('/v1/tokens', requestData);
-    const rawResponse = await getResponseBodyAsString(options, requestData);
+    const rawResponse = await _helpers.getResponseBodyAsString(options, requestData);
     if(!rawResponse) return false;
     const parsedResponse = _helpers.parseJsonToObject(rawResponse);
     if(!parsedResponse) return false;
@@ -255,36 +262,19 @@ async function getCardTokenOrFalse(cardData          )                       {
 async function chargeCardOrFalse   (cardToken        , orderId        )                       
 {
     const order = await readOrder(orderId);
-    const params = `amount=${order.totals.grossPrice*100}&currency=usd&description="Order number ${orderId}"&source=${cardToken}`;
+    const params = _helpers.encodePostData({
+        amount: order.totals.grossPrice*100,
+        currency: 'usd',
+        description: 'Order number ${orderId}',
+        source: cardToken
+    });
     const options = getStripePostOptions('/v1/charges', params);
-    const rawResponse = await getResponseBodyAsString(options, params);
+    const rawResponse = await _helpers.getResponseBodyAsString(options, params);
     if(!rawResponse) return false;
     const parsedResponse = _helpers.parseJsonToObject(rawResponse);
     if(!parsedResponse) return false;
     return parsedResponse.id || false;
 
-}
-
-async function getResponseBodyAsString(options        , requestData        )                       {
-    return new Promise((res, rej)=>{
-        const req = https.request(options, resp => {
-            let data = '';
-            resp.on('data', chunk => {data += chunk;});
-            resp.on('end', () => {
-                _logger.debug('got all the response from '+options.host+options.path)
-                res(data);
-            });
-        });
-    
-        req.on('error', (e) => {
-            _logger.error("Error during calling request with options", options, e);
-            res(false);
-        });
-        _logger.debug('going to do web request to'+options.host+options.path);
-        _logger.trace('request payload:', requestData);
-        req.write(requestData);
-        req.end();
-    });
 }
 
 function getStripePostOptions(path        , requestData        )        {
@@ -295,12 +285,12 @@ function getStripePostOptions(path        , requestData        )        {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Content-Length': Buffer.byteLength(requestData),
-            //TODO move this to config
-            'Authorization': 'Bearer sk_test_4eC39HqLyjWDarjtT1zdp7dc'
+            'Authorization': 'Bearer '+_config.stripeApiKey
         }
     };
     return options;
 }
+
 async function getOrderByIdForUser(orderId        , userId        , continueWith                                        )                               
 {
     const order = _helpers.parseJsonToObject(await _data.read('orders', orderId));
@@ -319,10 +309,12 @@ async function getOrderIdFromQs(data             , continueWith                 
     });
 }
 
-async function createAndPersistOrder   (cart          , userId        , continueWith                                     )                           
+async function createAndPersistOrder   (cart          , userId        , continueWith                                    )                           
 {    _logger.trace('creating order for user '+userId);
     const productIdsUnique           = cart.filter((value, index, self)=>self.indexOf(value) === index); 
     const menu = await getMenu();
+    const orderId = _helpers.createRandomString(20);
+    if(!orderId) return {code:500};
     const orderPositions                  = productIdsUnique.map(id=>{
         const menuItem = menu.find(menuItem => menuItem.id===id);
         if(!menuItem) return {itemId:id, itemName: 'product does no longer exist', qty:0, grossPrice:0, netPrice:0, tax:0};
@@ -341,12 +333,10 @@ async function createAndPersistOrder   (cart          , userId        , continue
         return acc;
     }, {netPrice: 0, grossPrice: 0, tax: 0});
 
-    const order = {positions: orderPositions, totals, userId, status: 'created'};
-    const orderId = _helpers.createRandomString(20);
-    if(!orderId) return {code:500};
+    const order = {positions: orderPositions, totals, userId, status: 'created', id: orderId, createdAt: new Date()};
     await _data.create('orders', orderId, order);
     _logger.trace('created new order for user '+userId+ ', order id is '+orderId);
-    return continueWith(orderId);
+    return continueWith(order);
 
 }
 
@@ -537,7 +527,7 @@ async function http201       (p             , payload   )
     return { code : 201, payload };
 }
 
-const getUserIfDataValid = (payload       )        => {
+const getUserIfDataValid = (payload       )                => {
                 const firstName = inputOrFalse(payload.firstName);
                 const lastName = inputOrFalse(payload.lastName);
                 const password = inputOrFalse(payload.password);
@@ -549,6 +539,7 @@ const getUserIfDataValid = (payload       )        => {
                 if(firstName && lastName && hashedPassword && email && tosAgreement)
                 {
                     return {
+                        createdAt:new Date(),
                         firstName,
                         lastName,
                         email,

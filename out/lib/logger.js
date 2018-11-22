@@ -13,8 +13,8 @@ const levels = {
 };
 
 const logTarget = _config.logTarget || 'both';
-
 const logLevel         = Number.isInteger(_config.logLevel) ? _config.logLevel : 6;
+
 const logger = {
     fatal: (...args       ) => {logLevel >= levels.fatal ? logger.log(args, 'fatal') : {};},
     error: (...args       ) => {logLevel >= levels.error ? logger.log(args, 'error') : {};},

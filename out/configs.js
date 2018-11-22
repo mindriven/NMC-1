@@ -2,7 +2,9 @@ const environments = {
     staging:{
         httpPort: 3000,
         httpsPort: 3001,
-        envName: 'staging'
+        envName: 'staging',
+        logLevel: 1,
+        logTarget: 'file'
     },
     production:{
         httpPort: 5000,
