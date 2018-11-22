@@ -23,18 +23,18 @@ const router = {
 };
 
 
-function start(){
+function start() {
     const httpsServerOptions = {
         key: fs.readFileSync('./https/key.pem'),
         cert: fs.readFileSync('./https/cert.pem')
     };
     const httpsServer = https.createServer(httpsServerOptions, (req, res) => {serverLogic(req, res);});
     const httpServer = http.createServer((req, res) => {serverLogic(req, res);});
-    
+
     httpServer.listen(config.httpPort, () => {
         _logger.info('the http server is listening on port ' + config.httpPort + ' now, configuration is ' + config.envName);
     });
-    
+
     httpsServer.listen(config.httpsPort, () => {
         _logger.info('the https server is listening on port ' + config.httpsPort + ' now, configuration is ' + config.envName);
     });
@@ -66,16 +66,24 @@ async function serverLogic(req, res) {
             payload: helpers.parseJsonToObject(buffer)
         };
 
-        const handlerResult = await handler(handlerData);
+        try {
+            const handlerResult = await handler(handlerData);
 
-        res.setHeader('Content-type', 'application/json');
-        res.writeHead(handlerResult.code || 200);
-        const responseContent = (handlerResult.code === 200 || handlerResult.code === 201)  && handlerResult.payload
+            res.setHeader('Content-type', 'application/json');
+            res.writeHead(handlerResult.code);
+            const responseContent = (handlerResult.code === 200 || handlerResult.code === 201) && handlerResult.payload
                 ? JSON.stringify(handlerResult.payload)
-                : '';
-        res.end(responseContent);
-        _logger.info('returning: ' + handlerResult.code);
-        _logger.debug('response content', responseContent);
+                : JSON.stringify(handlerResult.error);
+            res.end(responseContent)
+
+            _logger.info('returning: ' + handlerResult.code);
+            _logger.debug('response content', responseContent);
+        }
+        catch (e) {
+            _logger.fatal('unhandled exception during request processing');
+            res.writeHead(500);
+            res.end('');
+        }
     });
 }
 

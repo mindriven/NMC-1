@@ -10,7 +10,8 @@ const environments = {
         mailgunApiKey: process.env.MAILGUN_API_KEY,
         mailgunApiUser: 'api',
         mailDomain: 'sandbox261811fbf9134a96a4ce16baa651e497.mailgun.org',
-        mailFrom: 'kamil <3dcreator.pl@gmail.com>'
+        mailFrom: 'kamil <3dcreator.pl@gmail.com>',
+        workersInterval: 1000 * 10
     },
     production:{
         httpPort: 5000,
@@ -23,7 +24,8 @@ const environments = {
         mailgunApiUser: 'api',
         mailgunApiKey: process.env.MAILGUN_API_KEY,
         mailDomain: process.env.MAIL_SOURCE_DOMAIN,
-        mailFrom: 'bestPizza <bestPizza@mailgun.net>'
+        mailFrom: 'bestPizza <bestPizza@mailgun.net>',
+        workersInterval: 1000 * 60 * 15
     }
 };
 

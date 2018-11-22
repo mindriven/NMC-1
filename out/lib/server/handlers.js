@@ -6,6 +6,7 @@ const _logger = require('../logger');
 const querystring = require('querystring');
 const _config = require('../configs');
 
+                                                                                               
 
                            
                         
@@ -20,50 +21,6 @@ const _config = require('../configs');
                    
                
   
-
-                     
-                
-                     
-                   
-                      
-                       
-                      
-                          
-   
-
-              
-                    
-                  
-                  
- 
-
-                      
-                  
-                     
-               
-                       
-                     
-              
-  
-
-                    
-                      
-                       
-               
-  
-
-                                                                                
-                     
-                
-                     
-                                
-                         
-                    
-                         
-                      
- 
-
-                                                                                                 
 
 const handlers = {
     ping: async () => Promise.resolve({code: 200}),
@@ -182,7 +139,7 @@ const handlers = {
                 getOrderIdFromQs(data, orderId=>
                 getOrderByIdForUser(orderId, userId, order => Promise.resolve({code: 200, payload: order})))));
     },
-    notFound: async (data             ) => Promise.resolve({code: 404})
+    notFound: async (data             )                               => Promise.resolve({code: 404})
 };
 
                  

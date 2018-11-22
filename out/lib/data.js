@@ -11,6 +11,7 @@ const unlink = util.promisify(fs.unlink);
 const readdir = util.promisify(fs.readdir);
 const readFile = util.promisify(fs.readFile);
 const appendFile = util.promisify(fs.appendFile);
+const mkdir = util.promisify(fs.mkdir);
 
 const lib = {};
 
@@ -54,6 +55,14 @@ async function createOrAppend(dir        , file        , data     ){
 
 lib.createOrAppend = createOrAppend;
 
+lib.makeSureDirectoriesExist = async (...args          ) =>{
+    return Promise.all(args.map(async path=>{
+        const fullPath = dataDir(path);
+        if(!fs.existsSync(fullPath)){
+            await mkdir(fullPath);
+        }
+    }))
+}
 
 module.exports = lib;
 
