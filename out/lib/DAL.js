@@ -26,6 +26,11 @@ dal.removeToken = (token        )                => noException(_data.delete('to
 
 dal.readMenu = async () => _helpers.parseJsonToObject(await _data.read('', 'menu'))
 
+dal.getAllOrders = async () => (await Promise.all((await _data.listFiles('orders'))
+                                    .map(name => name.replace('.json', ''))
+                                    .map(async id => await dal.findOrderById(id))))
+                                    .filter(o=>o);
+
 const noException = async (promise               ) => {
     try{
         await promise;

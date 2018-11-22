@@ -262,6 +262,10 @@ async function getOrderIdFromQs(data             , continueWith                 
     });
 }
 
+function roundToTwo(num        )         {    
+    return +(Math.round(num*100)/100);
+}
+
 async function createAndPersistOrder   (cart          , userId        , continueWith                                    )                           
 {    _logger.trace('creating order for user '+userId);
     const productIdsUnique           = cart.filter((value, index, self)=>self.indexOf(value) === index); 
@@ -273,9 +277,9 @@ async function createAndPersistOrder   (cart          , userId        , continue
         if(!menuItem) return {itemId:id, itemName: 'product does no longer exist', qty:0, grossPrice:0, netPrice:0, tax:0};
         const qty = cart.filter(i=>i===id).length
         const taxRate = _config.taxRate;
-        const grossPrice = (qty*menuItem.price).toFixed(2);
-        const tax = (grossPrice * taxRate).toFixed(2);
-        const netPrice = (grossPrice - tax).toFixed(2);
+        const grossPrice = roundToTwo(qty*menuItem.price);
+        const tax = roundToTwo(grossPrice * taxRate);
+        const netPrice = roundToTwo(grossPrice - tax);
         return { itemId:id, itemName: menuItem.name, qty, grossPrice, netPrice, tax };
     });
 
