@@ -1,10 +1,10 @@
 //      
 
-const _data = require('../data');
 const _helpers = require('../helpers');
 const _logger = require('../logger');
 const querystring = require('querystring');
 const _config = require('../configs');
+const _dal = require('../DAL');
 
                                                                                                
 
@@ -19,6 +19,14 @@ const _config = require('../configs');
                                 
                  
                    
+               
+  
+
+
+                 
+                   
+                      
+                     
                
   
 
@@ -40,7 +48,7 @@ const handlers = {
             return getUserDataFromPayload(data, user =>
                 ifErrorBelowThen({code: 400, error: 'User already exists'},
                 createNewId(20, userId =>
-                http201(_data.create('users', userId, {...user, id: userId}), userId))));
+                http201(_dal.saveUser({...user, id: userId}), userId))));
         },
         get: async (data             )                               => {
             return authenticate(data,
@@ -52,12 +60,15 @@ const handlers = {
             return authenticate(data,
                 (token, userId) => getUserDataFromPayload(data,
                 user => ifErrorBelowThen({code: 404},
-                http200(_data.update('users', userId, user)))));
+                http200(_dal.saveUser({...user, id: userId})))));
         },
         delete: async (data             )                                => {
             return authenticate(data,
                 (token, userId) => ifErrorBelowThen({code: 404},
-                http200(_data.delete('users', userId))));
+                http200(Promise.all([_dal.removeCart(userId),
+                                    _dal.removeToken(token),
+                                    _dal.removeUser(userId)
+                                    ]))));
         },
     },
     tokens: async (data             )                                => {
@@ -71,7 +82,7 @@ const handlers = {
             return getExistingUserObjectByQsIdAndPayloadPassword(data, (user, userId) =>
                 createNewToken(userId, tokenObject =>
                 ifErrorBelowThen({code: 500, error: 'couldn\'t persist token'},
-                http200WithPayload(_data.create('tokens', tokenObject.token, tokenObject), tokenObject))));
+                http200WithPayload(_dal.saveToken(tokenObject), tokenObject))));
         },
         get: async (data             )                                 => {
             return getTokenFromQs(data, token =>
@@ -83,12 +94,12 @@ const handlers = {
                 ifErrorBelowThen({code: 404},
                 readTokenObject(token, oldTokenObject =>
                 updateExpires(oldTokenObject, updatedTokenObject =>
-                http200WithPayload(_data.update('tokens', token, updatedTokenObject), updatedTokenObject)))));
+                http200WithPayload(_dal.saveToken(updatedTokenObject), updatedTokenObject)))));
         },
         delete: async (data             )                                => {
             return getTokenFromQs(data, token=>
                 ifErrorBelowThen({code: 404},
-                http200(_data.delete('tokens', token))));
+                http200(_dal.removeToken(token))));
         }
     },
     cart: async (data             )                                     => {
@@ -98,12 +109,12 @@ const handlers = {
             : Promise.resolve({code: 405});
     },
     _cart:{
-        post: async (data             )                                   => {
+        post: async (data             )                               => {
             return authenticate(data, (token, userId) =>
                 ifErrorBelowThen({code: 500},
                 getMenuItemsIdsFromPayload(data, itemsIds => 
                 getCartForUser(userId, cart =>
-                http200(_data.createOrUpdate('carts', userId, [...cart, ...itemsIds]))))));
+                http200(_dal.saveCart([...cart, ...itemsIds], userId))))));
         }
         ,
         get: async (data             )                                   => {
@@ -116,7 +127,7 @@ const handlers = {
                 ifErrorBelowThen({code: 500},
                 getMenuItemsIdsFromPayload(data, itemsIds => 
                 getCartForUser(userId, cart =>
-                http200(_data.update('carts', userId, cart.filter(id=>itemsIds.includes(id))))))));
+                http200(_dal.saveCart(cart.filter(id=>itemsIds.includes(id)), userId))))));
         },
     },
     checkout: async (data             )                                 => {
@@ -129,7 +140,7 @@ const handlers = {
                 extractCardDataFromPayload(data, cardData =>
                 chargeCard(cardData, order.id, chargeId =>
                 updateOrderToPaid(order.id, chargeId,
-                http201(_data.delete('carts', userId), order.id))))))));
+                http201(_dal.removeCart(userId), order.id))))))));
     },
     orders: async (data             )                                => {
         return (data.method!=='get')
@@ -141,13 +152,6 @@ const handlers = {
     },
     notFound: async (data             )                               => Promise.resolve({code: 404})
 };
-
-                 
-                   
-                      
-                     
-               
-  
 
 async function extractCardDataFromPayload   (data             , continueWith                                       )                           
 {
@@ -165,25 +169,17 @@ async function extractCardDataFromPayload   (data             , continueWith    
 }
 
 async function readOrder(orderId        )                 {
-    const order = _helpers.parseJsonToObject(await _data.read('orders', orderId));
+    const order = await _dal.findOrderById(orderId);
     if(!order) throw new Error('no order for id' + orderId + 'found');
     return order;
 }
 
 async function updateOrderToPaid   (orderId        , chargeId        , continueWith                           )                            
 {
-    const order = _helpers.parseJsonToObject(await _data.read('orders', orderId));
+    const order = await _dal.findOrderById(orderId);
     if(!order) return {code: 500};
-    await _data.update('orders', orderId, {...order, chargeId, status:'paid'});
+    await _dal.saveOrder({...order, chargeId, status:'paid'});
     return continueWith;
-}
-
-const onlyDigitsOrFalse = (input        , minLen         , maxLen         ) =>{
-    const validated = inputOrFalse(input, minLen, maxLen);
-    if(!validated) return false;
-    return (/^\d+$/.test(validated))
-        ?validated
-        :false;
 }
 
 async function chargeCard   (cardData          , orderId        , continueWith                                     )                           
@@ -250,7 +246,7 @@ function getStripePostOptions(path        , requestData        )        {
 
 async function getOrderByIdForUser(orderId        , userId        , continueWith                                        )                               
 {
-    const order = _helpers.parseJsonToObject(await _data.read('orders', orderId));
+    const order = await _dal.findOrderById(orderId);
     if(!order) return {code: 404};
     if(order.userId!==userId) return{code: 403};
     return continueWith(order);
@@ -276,10 +272,10 @@ async function createAndPersistOrder   (cart          , userId        , continue
         const menuItem = menu.find(menuItem => menuItem.id===id);
         if(!menuItem) return {itemId:id, itemName: 'product does no longer exist', qty:0, grossPrice:0, netPrice:0, tax:0};
         const qty = cart.filter(i=>i===id).length
-        const taxRate = 0.23;// TODO move to config
-        const grossPrice = qty*menuItem.price;
-        const tax = grossPrice * taxRate;
-        const netPrice = grossPrice - tax;
+        const taxRate = _config.taxRate;
+        const grossPrice = (qty*menuItem.price).toFixed(2);
+        const tax = (grossPrice * taxRate).toFixed(2);
+        const netPrice = (grossPrice - tax).toFixed(2);
         return { itemId:id, itemName: menuItem.name, qty, grossPrice, netPrice, tax };
     });
 
@@ -291,7 +287,7 @@ async function createAndPersistOrder   (cart          , userId        , continue
     }, {netPrice: 0, grossPrice: 0, tax: 0});
 
     const order = {positions: orderPositions, totals, userId, status: 'created', id: orderId, createdAt: new Date()};
-    await _data.create('orders', orderId, order);
+    await _dal.saveOrder(order);
     _logger.trace('created new order for user '+userId+ ', order id is '+orderId);
     return continueWith(order);
 
@@ -300,7 +296,7 @@ async function createAndPersistOrder   (cart          , userId        , continue
 async function getCartForUser   (userId        , continueWith                                     )                           {
     let cart = [];
     try{
-        cart = _helpers.parseJsonToObject(await _data.read('carts', userId)) || [];
+        cart = await _dal.findCartByUserId(userId) || [];
     }
     catch(e){
         _logger.error('could not read cart for id ' + userId);
@@ -326,7 +322,7 @@ const getIntsFromPayload = (payload        )            =>
 }
 
 const getMenu = async () =>{
-    const parsedObject = _helpers.parseJsonToObject(await _data.read('', 'menu'));
+    const parsedObject = await _dal.readMenu();
     _logger.debug('parsed menu');
     _logger.trace('parsed menu content', parsedObject);
     if(!parsedObject || !(parsedObject instanceof Array)) throw new Error('menu has a wrong format');
@@ -347,11 +343,11 @@ const parseMenuItem = (item        )            => {
 }
 
 const readTokenObject = async (token        , continueWith                                                              ) => {
-    const tokenObject         = _helpers.parseJsonToObject(await _data.read('tokens', token));
+    const tokenObject         = await _dal.findTokenById(token);
     if(!tokenObject) return {code: 404};
     if(tokenObject.expires<Date.now()){
         _logger.trace('token with id '+token+' is expired');
-        _data.delete('tokens', token);
+        await _dal.removeToken(token);
         return {code: 400, error: 'token expired'};
     }
     else
@@ -363,7 +359,7 @@ const readTokenObject = async (token        , continueWith                      
 
 const updateExpires = async (token       , continueWith                                                              ) => {
     const updatedTokenObject = {...token, expires: newTokenExpirationDate()};
-    await _data.update('tokens', token.token, updatedTokenObject);
+    await _dal.saveToken(updatedTokenObject);
     return continueWith(updatedTokenObject);
 }
 
@@ -401,7 +397,7 @@ const getExistingUserObjectByQsIdAndPayloadPassword = async (data             , 
         const password = inputOrFalse(payload.password);
         const userId = inputOrFalse(qs.userId, 10);
         if (!password || !userId) return {code: 400, error: 'Missing required fields'};
-        const user = _helpers.parseJsonToObject(await _data.read('users', userId));
+        const user = await _dal.findUserById(userId);
         const inputPasswordHash = _helpers.hash(password);
         if(!user || user.password !== inputPasswordHash) return {code: 404};
         return continueWith(user, userId);
@@ -444,7 +440,7 @@ async function authenticate   (data             , continueWith                  
     const token = inputOrFalse(data.headers.token, 20, 20);
     if(!token) return {code: 403, error: 'No token or token did not match'};
     try{
-        const tokenObject = _helpers.parseJsonToObject(await _data.read('tokens', token));
+        const tokenObject = await _dal.findTokenById(token);
         if(!tokenObject) return {code: 403, error: 'No token or token did not match'};
         const isValid = tokenObject && tokenObject.expires >= Date.now();
         if(!isValid) return {code: 403, error: 'No token or token did not match'};
@@ -456,7 +452,7 @@ async function authenticate   (data             , continueWith                  
 
 const readUserObject = async (userId         , continueWith                                              )                               =>
 {
-    const user = _helpers.parseJsonToObject(await _data.read('users', userId));
+    const user = await _dal.findUserById(userId);
     if(!user) return {code: 404};
     return continueWith(user);
 }
@@ -518,5 +514,13 @@ const validEmailOrFalse = (input        ) => {
         ? input.toLowerCase()
         : false;
 };
+
+const onlyDigitsOrFalse = (input        , minLen         , maxLen         ) =>{
+    const validated = inputOrFalse(input, minLen, maxLen);
+    if(!validated) return false;
+    return (/^\d+$/.test(validated))
+        ?validated
+        :false;
+}
 
 module.exports = handlers;

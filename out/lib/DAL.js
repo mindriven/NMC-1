@@ -1,8 +1,9 @@
 //      
 const _data = require('./data');
 const _helpers = require('./helpers');
+const _logger = require('./logger.js');
 
-                                                        
+                                                                  
 
 // initialize directories
 _data.makeSureDirectoriesExist('users', 'orders', 'carts', 'tokens', '.logs');
@@ -18,8 +19,20 @@ dal.saveOrder = (order       )                => _data.createOrUpdate('orders', 
 dal.saveCart = (cart      , userId        )                => _data.createOrUpdate('carts', userId, cart);
 dal.saveToken = (token       )                => _data.createOrUpdate('tokens', token.token, token);
 
-dal.deleteUser = (userId        )                => _data.delete('users', userId);
-dal.deleteCart = (userId        )                => _data.delete('carts', userId);
-dal.deleteToken = (token        )                => _data.delete('tokens', token);
+dal.removeUser = (userId        )                => noException(_data.delete('users', userId));
+dal.removeCart = (userId        )                => noException(_data.delete('carts', userId));
+dal.removeToken = (token        )                => noException(_data.delete('tokens', token));
+
+
+dal.readMenu = async () => _helpers.parseJsonToObject(await _data.read('', 'menu'))
+
+const noException = async (promise               ) => {
+    try{
+        await promise;
+    }
+    catch(e){
+        _logger.error('exception was thrown, but will be muted by design', e);
+    }
+} 
 
 module.exports = dal;
