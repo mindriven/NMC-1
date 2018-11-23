@@ -48,7 +48,7 @@ const handlers = {
             return getUserDataFromPayload(data, user =>
                 ifErrorBelowThen({code: 400, error: 'User already exists'},
                 createNewId(20, userId =>
-                http201(_dal.saveUser({...user, id: userId}), userId))));
+                http201(_dal.saveUser({...user, id: userId, createdAt: new Date()}), userId))));
         },
         get: async (data             )                               => {
             return authenticate(data,
@@ -117,12 +117,12 @@ const handlers = {
                 http200(_dal.saveCart([...cart, ...itemsIds], userId))))));
         }
         ,
-        get: async (data             )                                   => {
+        get: async (data             )                               => {
             return authenticate(data, (token, userId) =>
                 ifErrorBelowThen({code: 500},
                 getCartForUser(userId, cart => Promise.resolve({code: 200, payload: cart}))));
         },
-        delete: async (data             )                                   => {
+        delete: async (data             )                               => {
             return authenticate(data, (token, userId) =>
                 ifErrorBelowThen({code: 500},
                 getMenuItemsIdsFromPayload(data, itemsIds => 
@@ -497,7 +497,6 @@ const getUserIfDataValid = (payload       )                => {
                 if(firstName && lastName && hashedPassword && email && tosAgreement)
                 {
                     return {
-                        createdAt:new Date(),
                         firstName,
                         lastName,
                         email,
