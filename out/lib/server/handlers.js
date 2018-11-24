@@ -5,6 +5,11 @@ const _logger = require('../logger')('handlers');
 const querystring = require('querystring');
 const _config = require('../configs');
 const _dal = require('../DAL');
+const fs = require('fs');
+const util = require('util');
+const path = require('path');
+
+const readFile = util.promisify(fs.readFile);
 
                                                                                                
 
@@ -149,6 +154,27 @@ const handlers = {
                 ifErrorBelowThen({code: 500},
                 getOrderIdFromQs(data, orderId=>
                 getOrderByIdForUser(orderId, userId, order => Promise.resolve({code: 200, payload: order})))));
+    },
+    public: async (data             )                                 =>{
+        try
+        {
+            const filepath = 'public/'+(path.basename(data.trimmedPath) || 'index.html');
+            const fileContent = (await readFile(filepath)).toString();
+            if(filepath.endsWith('.html')){
+                const menu = await getMenu();
+                const menuTable =
+                '<table><thead><tr><th>Name</th><th>Description</th><th>Price</th><th class="loggedIn">add to cart</th></tr></thead><tbody>'
+                + menu.map(item=>`<tr><td>${item.name}</td><td>${item.description}</td><td>${item.price.toFixed(2)} $</td><td class="loggedIn"><form action="api/cart" method="POST" id="menuItem_${item.id}"><button class="cta green" type="submit">add to cart</button></form></td></tr>`).join('')
+                + '</tbody></table>'
+                return Promise.resolve({code: 200, payload: fileContent.replace('{menu}', menuTable)});
+            }
+            return Promise.resolve({code: 200, payload: fileContent});
+        }
+        catch(e)
+        {
+            _logger.error(e);
+            return {code: 500}
+        }
     },
     notFound: async (data             )                               => Promise.resolve({code: 404})
 };
@@ -321,7 +347,7 @@ async function getMenuItemsIdsFromPayload   (data             , continueWith    
 
 const getIntsFromPayload = (payload        )            =>
 {
-    if(typeof payload === 'number') return [Number.parseInt(payload)];
+    if(typeof payload === 'number' || typeof payload === 'string') return [Number.parseInt(payload)];
     if(payload instanceof Array) return payload.map(id=>Number.isInteger(id)?id:undefined).filter(id=>id);
     return [];
 }
