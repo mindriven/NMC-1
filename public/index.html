@@ -32,12 +32,12 @@
             <div class="clear"></div>
         </div>
         <div class="content" style="overflow:hidden;">
-            <div style="width:80%;float:left;">
+            <div style="width:75%;float:left;">
                 <h1>Enjoy fines pizzas and other dishes from our menu!</h1>
                 <p class="loggedOut">To order please create an account</p>
                     {menu}
             </div>
-            <div style="width: 20%;float: right;">
+            <div style="width: 25%;float: right;">
                 <div class="formWrapper loggedOut">
                     <h2>Login</h2>
                     <form id="sessionCreate" action="/api/tokens" method="POST">
@@ -82,8 +82,12 @@
                         </div>
                     </form>
                 </div>
-                <div id="cart">
-
+                <div id="cart" class="loggedIn formWrapper">
+                    <h2>Your cart</h2>
+                    <div class="formError"></div>
+                    <div id="cartContent">
+                        <p>Cart is empty!</p>
+                    </div>
                 </div>
                 <div class="formWrapper loggedIn">
                     <h2>Card data</h2>

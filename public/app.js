@@ -94,99 +94,101 @@ app.logUserOut = function () {
   });
 };
 
+app.bindForm = function (form) {
+
+  form.addEventListener("submit", function (e) {
+
+    // Stop it from submitting
+    e.preventDefault();
+    var formId = this.id;
+    var path = this.action;
+    var method = this.method.toUpperCase();
+
+    if (document.querySelector("#" + formId + " .formError")) {
+      document.querySelector("#" + formId + " .formError").style.display = 'none';
+    }
+
+    if (document.querySelector("#" + formId + " .formSuccess")) {
+      document.querySelector("#" + formId + " .formSuccess").style.display = 'none';
+    }
+
+
+    // Turn the inputs into a payload
+    var payload = {};
+    var elements = this.elements;
+    for (var i = 0; i < elements.length; i++) {
+      if (elements[i].type !== 'submit') {
+        // Determine class of element and set value accordingly
+        var classOfElement = typeof (elements[i].classList.value) == 'string' && elements[i].classList.value.length > 0 ? elements[i].classList.value : '';
+        var valueOfElement = elements[i].type == 'checkbox' && classOfElement.indexOf('multiselect') == -1 ? elements[i].checked : classOfElement.indexOf('intval') == -1 ? elements[i].value : parseInt(elements[i].value);
+        var elementIsChecked = elements[i].checked;
+        // Override the method of the form if the input's name is _method
+        var nameOfElement = elements[i].name;
+        if (nameOfElement == '_method') {
+          method = valueOfElement;
+        } else {
+          // Create an payload field named "method" if the elements name is actually httpmethod
+          if (nameOfElement == 'httpmethod') {
+            nameOfElement = 'method';
+          }
+          // Create an payload field named "id" if the elements name is actually uid
+          if (nameOfElement == 'uid') {
+            nameOfElement = 'id';
+          }
+          // If the element has the class "multiselect" add its value(s) as array elements
+          if (classOfElement.indexOf('multiselect') > -1) {
+            if (elementIsChecked) {
+              payload[nameOfElement] = typeof (payload[nameOfElement]) == 'object' && payload[nameOfElement] instanceof Array ? payload[nameOfElement] : [];
+              payload[nameOfElement].push(valueOfElement);
+            }
+          } else {
+            payload[nameOfElement] = valueOfElement;
+          }
+
+        }
+      }
+    }
+
+    // If the method is DELETE, the payload should be a queryStringObject instead
+    var queryStringObject = method == 'DELETE' ? payload : {};
+
+    if (formId == 'sessionCreate') {
+      queryStringObject = {userId: payload.userId};
+      delete payload.userId;
+    }
+    else if (formId.startsWith('menuItem_') || formId.startsWith('removeItem_')) {
+      payload = formId.replace('menuItem_', '').replace('removeItem_', '');
+    }
+
+    // Call the API
+    app.client.request(undefined, path, method, queryStringObject, payload, function (statusCode, responsePayload) {
+      console.log(statusCode, responsePayload);
+      if (statusCode !== 200 && statusCode != 201) {
+        if (statusCode == 403) {
+          app.logUserOut();
+        } else {
+          var error = typeof (responsePayload.Error) == 'string' ? responsePayload.Error : 'An error has occured, please try again';
+          document.querySelector("#" + formId + " .formError").innerHTML = error;
+          document.querySelector("#" + formId + " .formError").style.display = 'block';
+        }
+      } else {
+        app.formResponseProcessor(formId, payload, responsePayload);
+      }
+
+    });
+  })
+}
+
 // Bind the forms
 app.bindForms = function () {
   if (document.querySelector("form")) {
 
     var allForms = document.querySelectorAll("form");
     for (var i = 0; i < allForms.length; i++) {
-      allForms[i].addEventListener("submit", function (e) {
-        // Stop it from submitting
-        e.preventDefault();
-        var formId = this.id;
-        var path = this.action;
-        var method = this.method.toUpperCase();
-
-        if(document.querySelector("#" + formId + " .formError"))
-        {
-          document.querySelector("#" + formId + " .formError").style.display = 'none';
-        }
-
-        if (document.querySelector("#" + formId + " .formSuccess")) {
-          document.querySelector("#" + formId + " .formSuccess").style.display = 'none';
-        }
-
-
-        // Turn the inputs into a payload
-        var payload = {};
-        var elements = this.elements;
-        for (var i = 0; i < elements.length; i++) {
-          if (elements[i].type !== 'submit') {
-            // Determine class of element and set value accordingly
-            var classOfElement = typeof (elements[i].classList.value) == 'string' && elements[i].classList.value.length > 0 ? elements[i].classList.value : '';
-            var valueOfElement = elements[i].type == 'checkbox' && classOfElement.indexOf('multiselect') == -1 ? elements[i].checked : classOfElement.indexOf('intval') == -1 ? elements[i].value : parseInt(elements[i].value);
-            var elementIsChecked = elements[i].checked;
-            // Override the method of the form if the input's name is _method
-            var nameOfElement = elements[i].name;
-            if (nameOfElement == '_method') {
-              method = valueOfElement;
-            } else {
-              // Create an payload field named "method" if the elements name is actually httpmethod
-              if (nameOfElement == 'httpmethod') {
-                nameOfElement = 'method';
-              }
-              // Create an payload field named "id" if the elements name is actually uid
-              if (nameOfElement == 'uid') {
-                nameOfElement = 'id';
-              }
-              // If the element has the class "multiselect" add its value(s) as array elements
-              if (classOfElement.indexOf('multiselect') > -1) {
-                if (elementIsChecked) {
-                  payload[nameOfElement] = typeof (payload[nameOfElement]) == 'object' && payload[nameOfElement] instanceof Array ? payload[nameOfElement] : [];
-                  payload[nameOfElement].push(valueOfElement);
-                }
-              } else {
-                payload[nameOfElement] = valueOfElement;
-              }
-
-            }
-          }
-        }
-
-
-        // If the method is DELETE, the payload should be a queryStringObject instead
-        var queryStringObject = method == 'DELETE' ? payload : {};
-
-        console.log(formId);
-        if (formId == 'sessionCreate') {
-          queryStringObject = {userId: payload.userId};
-          delete payload.userId;
-        }
-        else if(formId.startsWith('menuItem_'))
-        {
-          payload = formId.replace('menuItem_', '');
-        }
-        console.log(payload);
-        // Call the API
-        app.client.request(undefined, path, method, queryStringObject, payload, function (statusCode, responsePayload) {
-          console.log(statusCode, responsePayload);
-          if (statusCode !== 200 && statusCode != 201) {
-            if (statusCode == 403) {
-              app.logUserOut();
-            } else {
-              var error = typeof (responsePayload.Error) == 'string' ? responsePayload.Error : 'An error has occured, please try again';
-              document.querySelector("#" + formId + " .formError").innerHTML = error;
-              document.querySelector("#" + formId + " .formError").style.display = 'block';
-            }
-          } else {
-            app.formResponseProcessor(formId, payload, responsePayload);
-          }
-
-        });
-      });
+      app.bindForm(allForms[i]);
     }
-  }
-};
+  };
+}
 
 // Form response processor
 app.formResponseProcessor = function (formId, requestPayload, responsePayload) {
@@ -213,6 +215,10 @@ app.formResponseProcessor = function (formId, requestPayload, responsePayload) {
     app.setSessionToken(responsePayload);
   }
 
+  if (formId.startsWith('menuItem_') || formId.startsWith('removeItem_')) {
+    app.updateCart();
+  }
+
   // If forms saved successfully and they have success messages, show them
   var formsWithSuccessMessages = ['accountEdit1', 'accountEdit2', 'checksEdit1'];
   if (formsWithSuccessMessages.indexOf(formId) > -1) {
@@ -220,6 +226,35 @@ app.formResponseProcessor = function (formId, requestPayload, responsePayload) {
   }
 
 };
+
+app.updateCart = function (){
+  app.client.request(undefined, 'api/cart', 'GET', undefined, undefined, function (newStatusCode, cartItemsIds) {
+    // Display an error on the form if needed
+    if (newStatusCode !== 200) {
+      document.querySelector("#cart .formError").innerHTML = 'Sorry, an error has occured. The cart content may be stale.';
+      document.querySelector("#cart .formError").style.display = 'block';
+    } else {
+
+      if (cartItemsIds.length > 0) {
+        const cartWithCounts = cartItemsIds.reduce((acc, id) => {
+          if (acc[id]) acc[id]++;
+          else acc[id] = 1;
+          return acc;
+        }, {});
+
+        const headerHtml = '<table><thead><tr><th>Product</th><th>Qty</th><th> </th></thead><tbody><tr>';
+        const footerHtml = '</tr></tbody></table>';
+        const cartHtml = Object.entries(cartWithCounts).map(([itemId, count]) => '<td>' + document.querySelector(`#menuItemName_${itemId}`).innerHTML + `</td><td>${count}</td><td><form action="api/cart" id="removeItem_${itemId}" method="POST"><input type="hidden" name="_method" value="DELETE"/><button type="submit" class="cta red" style="width: 50px;">X</button></form></td>`).join('</`tr><tr>');
+        document.querySelector("#cartContent").innerHTML = headerHtml + cartHtml + footerHtml;
+        Object.entries(cartWithCounts).forEach(([itemId, count]) => {
+          app.bindForm(document.querySelector(`#removeItem_${itemId}`));
+        });
+      }
+      else document.querySelector("#cartContent").innerHTML = "<p>Cart is empty!</p>";
+    }
+
+  });
+}
 
 // Get the session token from localstorage and set it in the app.config object
 app.getSessionToken = function () {
@@ -245,6 +280,7 @@ app.setLoggedInClass = function (add) {
   var target = document.querySelector("body");
   if (add) {
     target.classList.add('loggedIn');
+    app.updateCart();
   } else {
     target.classList.remove('loggedIn');
   }
