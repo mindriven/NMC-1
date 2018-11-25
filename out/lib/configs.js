@@ -14,7 +14,8 @@ const environments = {
         mailFrom: 'test <test@gmail.com>',
         invoiceSenderInterval: 1000 * 10,
         logsArchiverInterval: 1000 * 60 * 10,
-        tokensCleanupInterval: 1000 * 10
+        tokensCleanupInterval: 1000 * 10,
+        baseUrl: 'http://localhost:3000/'
     },
     production:{
         httpPort: 5000,
@@ -31,7 +32,8 @@ const environments = {
         mailFrom: 'bestPizza <bestPizza@mailgun.net>',
         invoiceSenderInterval: 1000 * 60 * 15,
         logsArchiverInterval: 1000 * 60 * 60 * 24,
-        tokensCleanupInterval: 1000 * 10 * 10
+        tokensCleanupInterval: 1000 * 10 * 10,
+        baseUrl: 'http://localhost:5000/'
     }
 };
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="content-language" content="en-us">
-    <base href="{global.baseUrl}" />
+    <base href="{baseUrl}" />
     <title>Best Pizza Ever</title>
     <meta name="description" content="Pizza is good for you!">
 
@@ -20,13 +20,13 @@
                 <img src="public/logo.png" alt="Logo" />
             </a>
             <ul class="menu">
+                <li class="loggedIn" id="welcomeBox"></li>
                 <li class="loggedIn">
                     <a href="#" id="deleteAccountButton">Delete Account</a>
                 </li>
                 <li class="loggedIn">
                     <a href="#" id="logoutButton">Logout</a>
                 </li>
-                <li class="loggedIn" id="welcomeBox"></li>
             </ul>
 
             <div class="clear"></div>
@@ -89,9 +89,10 @@
                         <p>Cart is empty!</p>
                     </div>
                 </div>
-                <div class="formWrapper loggedIn">
+                <div id="orderMessage" class="green formSuccess"></div>
+                <div class="formWrapper loggedIn" id="cardData">
                     <h2>Card data</h2>
-                    <form id="cartForm" action="/api/checkout" method="POST">
+                    <form id="orderCreate" action="/api/checkout" method="POST">
                         <div class="formError"></div>
                         <div class="inputWrapper">
                             <div class="inputLabel">Card Number</div><input type=" text" name="number" placeholder="4242424242424242" />

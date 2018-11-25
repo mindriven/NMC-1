@@ -78,7 +78,9 @@ async function serverLogic(req, res) {
         };
 
         try {
+            console.log(handlerData);
             const handlerResult = await handler(handlerData);
+            console.log(fileExtension);
             res.setHeader('Content-type', knownMimeTypes[fileExtension] || 'application/json');
             res.writeHead(handlerResult.code);
             const responseContent = (handlerResult.code === 200 || handlerResult.code === 201) && handlerResult.payload

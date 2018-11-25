@@ -6,7 +6,7 @@
     "nodemon": "^1.18.5"
   },
   "scripts": {
-    "build": "flow-remove-types ./ -d out/ -i \"out|node_modules|noop.js|nodemon.*.json|package.*.json\" -x .json,.js",
+    "build": "flow-remove-types ./ -d out/ -i \"out|node_modules|public|noop.js|nodemon.*.json|package.*.json\" -x .json,.js",
     "build:pretty": "yarn build --pretty",
     "flow:": "flow check ./",
     "start": "nodemon ./out/index.js",

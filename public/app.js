@@ -159,10 +159,18 @@ app.bindForm = function (form) {
     else if (formId.startsWith('menuItem_') || formId.startsWith('removeItem_')) {
       payload = formId.replace('menuItem_', '').replace('removeItem_', '');
     }
-
+    if(formId == 'orderCreate'){
+      document.querySelector('#cardData').style.display = 'none';
+      document.querySelector('#orderMessage').innerHTML = 'Processing your order...';
+      document.querySelector('#orderMessage').style.display = 'block';
+    }
+    else{
+      document.querySelector('#orderMessage').innerHTML = '';
+      document.querySelector('#orderMessage').style.display = 'none';
+    }
+    
     // Call the API
     app.client.request(undefined, path, method, queryStringObject, payload, function (statusCode, responsePayload) {
-      console.log(statusCode, responsePayload);
       if (statusCode !== 200 && statusCode != 201) {
         if (statusCode == 403) {
           app.logUserOut();
@@ -204,25 +212,22 @@ app.formResponseProcessor = function (formId, requestPayload, responsePayload) {
         document.querySelector("#" + formId + " .formError").innerHTML = 'Sorry, an error has occured. Please try again.';
         document.querySelector("#" + formId + " .formError").style.display = 'block';
       } else {
-        document.querySelector('#welcomeBox').innerHTML = 'Your user id is ' + responsePayload + ', please write it down to login in the future.';
         app.setSessionToken(newResponsePayload);
       }
     });
   }
   // If login was successful, set the token in localstorage and redirect the user
   if (formId == 'sessionCreate') {
-    document.querySelector('#welcomeBox').innerHTML = 'Welcome, your logged in with user id ' + responsePayload.userId;
     app.setSessionToken(responsePayload);
   }
 
-  if (formId.startsWith('menuItem_') || formId.startsWith('removeItem_')) {
+  if (formId.startsWith('menuItem_') || formId.startsWith('removeItem_') || formId == 'orderCreate') {
     app.updateCart();
-  }
-
-  // If forms saved successfully and they have success messages, show them
-  var formsWithSuccessMessages = ['accountEdit1', 'accountEdit2', 'checksEdit1'];
-  if (formsWithSuccessMessages.indexOf(formId) > -1) {
-    document.querySelector("#" + formId + " .formSuccess").style.display = 'block';
+    if(formId=='orderCreate')
+    {
+      document.querySelector('#orderMessage').style.display = 'block';
+      document.querySelector('#orderMessage').innerHTML = `Your order (#${responsePayload}) has been processed and billed. We will send you an invoice soon.`;
+    }
   }
 
 };
@@ -249,8 +254,12 @@ app.updateCart = function (){
         Object.entries(cartWithCounts).forEach(([itemId, count]) => {
           app.bindForm(document.querySelector(`#removeItem_${itemId}`));
         });
+        document.querySelector("#cardData").style.display = '';
       }
-      else document.querySelector("#cartContent").innerHTML = "<p>Cart is empty!</p>";
+      else{
+        document.querySelector("#cartContent").innerHTML = "<p>Cart is empty!</p>";
+        document.querySelector("#cardData").style.display = 'none';
+      }
     }
 
   });
@@ -281,6 +290,7 @@ app.setLoggedInClass = function (add) {
   if (add) {
     target.classList.add('loggedIn');
     app.updateCart();
+    document.querySelector("#welcomeBox").innerHTML = 'Welcome, your userId is ' + app.config.sessionToken.userId;
   } else {
     target.classList.remove('loggedIn');
   }
@@ -326,9 +336,27 @@ app.tokenRenewalLoop = function () {
   }, 1000 * 60);
 };
 
+app.bindAccountRemoveButton = function(){
+  document.querySelector('#deleteAccountButton').addEventListener('click', function(e){
+    e.preventDefault();
+    if(confirm('you sure?'))
+    {
+      app.client.request(undefined, 'api/users', 'DELETE', undefined, undefined, (code, content)=>{
+        if(code===200){
+          app.setSessionToken(false);
+        }
+        else{
+          alert('Something went wrong, please try again later');
+        }
+      });
+    }
+  });
+};
+
 app.init = function () {
   app.bindForms();
   app.bindLogoutButton();
+  app.bindAccountRemoveButton();
   app.getSessionToken();
   app.tokenRenewalLoop();
 };
