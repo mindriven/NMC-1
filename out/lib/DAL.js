@@ -35,26 +35,47 @@ dal.saveInLogsDir = (content        , fileName        )                => _data.
 dal.readMenu = async () => _helpers.parseJsonToObject(await _data.read('', 'menu'))
 
 dal.getAllOrders = async () => (await Promise.all((await _data.listFiles(ORDERS_DIR))
-                                    .map(name => name.replace('.json', ''))
-                                    .map(async id => await dal.findOrderById(id))))
-                                    .filter(o=>o);
+    .map(name => name.replace('.json', ''))
+    .map(async id => await dal.findOrderById(id))))
+    .filter(o => o);
+
+dal.getRecentOrders = async (recentHours         ) => {
+    const from = new Date();
+    if (recentHours) {
+        from.setHours(from.getHours() - recentHours);
+    }
+    return (await dal.getAllOrders()).filter(o => o.createdAt >= from);
+};
+
+dal.getAllUsers = async () => (await Promise.all((await _data.listFiles(USERS_DIR))
+    .map(name => name.replace('.json', ''))
+    .map(async id => await dal.findUserById(id))))
+    .filter(o => o);
+
+dal.getRecentUsers = async (recentHours         ) => {
+    const from = new Date();
+    if (recentHours) {
+        from.setHours(from.getHours() - recentHours);
+    }
+    return (await dal.getAllUsers()).filter(u => u.createdAt >= from);
+};
 
 dal.getAllTokens = async () => (await Promise.all((await _data.listFiles(TOKENS_DIR))
-                                    .map(name => name.replace('.json', ''))
-                                    .map(async id => await dal.findTokenById(id))))
-                                    .filter(o=>o);
+    .map(name => name.replace('.json', ''))
+    .map(async id => await dal.findTokenById(id))))
+    .filter(o => o);
 
-dal.listAllLogsFiles = async () => (await _data.listFiles('.logs')).filter(f=>f.endsWith('.log'));
+dal.listAllLogsFiles = async () => (await _data.listFiles('.logs')).filter(f => f.endsWith('.log'));
 
-async function parseNoException   (promise                       )             {
-    const result  = await noException(promise);
-    return result? _helpers.parseJsonToObject(result) : undefined;
+async function parseNoException   (promise                         )              {
+    const result = await noException(promise);
+    return result ? _helpers.parseJsonToObject(result) : undefined;
 }
 
-async function noException   (promise                 )                   {
-        return promise.catch(e=>{
-            _logger.error('exception was thrown, but will be muted by design', e);
-        });
-} 
+async function noException   (promise                   )                    {
+    return promise.catch(e => {
+        _logger.error('exception was thrown, but will be muted by design', e);
+    });
+}
 
 module.exports = dal;

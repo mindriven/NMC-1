@@ -155,7 +155,7 @@ const handlers = {
                 getOrderIdFromQs(data, orderId=>
                 getOrderByIdForUser(orderId, userId, order => Promise.resolve({code: 200, payload: order})))));
     },
-    public: async (data             )                                 =>{
+    public: async (data             )                                        =>{
         try
         {
             const filepath = path.join('public/', path.basename(data.trimmedPath) || 'index.html');

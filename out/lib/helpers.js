@@ -6,6 +6,16 @@ const _logger = require('./logger')('helpers');
 const util = require('util');
 const querystring = require('querystring');
 
+const dateFormat = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+function reviver(key, value) {
+  if (typeof value === "string" && dateFormat.test(value)) {
+    return new Date(value);
+  }
+
+  return value;
+}
+
 const helpers = {
     hash: (input        ) => {
         if (typeof input === 'string' && input.length > 0) {
@@ -17,7 +27,7 @@ const helpers = {
         }
     },
     parseJsonToObject:    (input        )      => {
-        try {return JSON.parse(input);}
+        try {return JSON.parse(input, reviver);}
         catch (e) { return undefined;}
     },
     createRandomString: (len         = 20)          => {
