@@ -3,8 +3,8 @@ pipeline {
     stages {
         stage('sample step 1') { 
             steps {
-                def scannerHome = tool 'SonarRunner 3.3.0.1492';
                 withSonarQubeEnv('SQStandardSettings') {
+                    def scannerHome = tool 'SonarRunner 3.3.0.1492';
                     sh "${scannerHome}/bin/sonar-scanner"
                 }
             }
