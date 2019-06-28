@@ -2,9 +2,11 @@ pipeline {
     agent any 
     stages {
         stage('sample step 1') { 
+            environment {
+                scannerHome = tool 'SonarRunner 3.3.0.1492'
+            }
             steps {
                 withSonarQubeEnv('SQStandardSettings') {
-                    def scannerHome = tool 'SonarRunner 3.3.0.1492';
                     sh "${scannerHome}/bin/sonar-scanner"
                 }
             }
